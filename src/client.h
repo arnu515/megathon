@@ -18,11 +18,15 @@
 // Function declarations
 void *get_in_addr(struct sockaddr *sa);
 int setup_addrinfo(char *hostname, struct addrinfo **servinfo);
-int connect_to_server(struct addrinfo *servinfo, int *sockfd, char *s);
-int receive_data(int sockfd, char *buf);
+int setup_conn(struct addrinfo *servinfo, int *sockfd, char *s);
+ssize_t receive_data(int sockfd, char *buf);
+ssize_t send_data(int, const char *, size_t);
+void connect_to_server(char *, struct addrinfo **, int *, char []);
+void fetch_and_set_starting_pos(int, int *, int *);
+void get_clients(int);
 
 // Function definitions
-#ifndef _CLIENT_IMPLEMENTATION
+#ifdef _CLIENT_IMPLEMENTATION
 
 void *get_in_addr(struct sockaddr *sa)
 {
@@ -47,7 +51,7 @@ int setup_addrinfo(char *hostname, struct addrinfo **servinfo)
     return 0;
 }
 
-int connect_to_server(struct addrinfo *servinfo, int *sockfd, char *s)
+int setup_conn(struct addrinfo *servinfo, int *sockfd, char *s)
 {
     struct addrinfo *p;
     for (p = servinfo; p != NULL; p = p->ai_next) {
@@ -71,16 +75,71 @@ int connect_to_server(struct addrinfo *servinfo, int *sockfd, char *s)
     return 2;
 }
 
-int receive_data(int sockfd, char *buf)
+ssize_t receive_data(int sockfd, char *buf)
 {
-    int numbytes;
+    ssize_t numbytes;
     if ((numbytes = recv(sockfd, buf, MAXDATASIZE - 1, 0)) == -1) {
         perror("recv");
-        return 1;
+        return -1;
     }
     buf[numbytes] = '\0';
     printf("client: received '%s'\n", buf);
-    return 0;
+    return numbytes;
+}
+
+ssize_t send_data(int sockfd, const char *buf, size_t len) {
+    ssize_t n;
+    if ((n = send(sockfd, buf, len, 0)) < 0) {
+        perror("send");
+        return -1;
+    }
+    return n;
+}
+
+void connect_to_server(char *host, struct addrinfo **servinfo, int *sockfd, char s[]) {
+  if (setup_addrinfo(host, servinfo) != 0) {
+    TraceLog(LOG_FATAL, "Could not setup address");
+    exit(1);
+  }
+
+  if (setup_conn(*servinfo, sockfd, s) != 0) {
+    TraceLog(LOG_FATAL, "Could not connect to server");
+    freeaddrinfo(*servinfo);
+    exit(1);
+  }
+
+  freeaddrinfo(*servinfo);
+}
+
+void fetch_and_set_starting_pos(int sockfd, int *x, int *y) {
+  char buf[MAXDATASIZE] = {0};
+  if (receive_data(sockfd, buf) < 0) {
+    perror("receive");
+    TraceLog(LOG_FATAL, "Could not get starting coordinates");
+    exit(1);
+  }
+  TraceLog(LOG_INFO, "Starting coords: %s", buf);
+  sscanf(buf, "(%d,%d)", x, y);
+}
+
+void get_clients(int sockfd) {
+  send_data(sockfd, "get", 3);
+  char buf[MAXDATASIZE] = {0};
+  if (receive_data(sockfd, buf) < 0) {
+    perror("receive");
+    TraceLog(LOG_FATAL, "Could not get other clients");
+    exit(1);
+  }
+  long num = atol(buf);
+  TraceLog(LOG_INFO, "%d clients connected\n", num);
+  while (num-- > 0) {
+    if (receive_data(sockfd, buf) < 0) {
+      perror("receive");
+      TraceLog(LOG_FATAL, "Could not get other clients");
+      exit(1);
+    }
+    printf("New client: %s\n", buf);
+  }
 }
 
 #endif
