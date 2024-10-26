@@ -10,6 +10,7 @@
 #define PORT 8080
 #define BUFFER_SIZE 1024
 #define MAX_CLIENTS 10
+#define START_POS 456
 
 typedef struct client {
     int posX;
@@ -126,7 +127,8 @@ int main() {
 
         pthread_mutex_lock(&client_mutex);
         if (client_count < MAX_CLIENTS) {
-            memset(&client_sockets[client_count], 0, sizeof(Client));
+            client_sockets[client_count].posX = START_POS;
+            client_sockets[client_count].posY = START_POS;
             client_sockets[client_count++].socket = new_socket;
         } else {
             printf("Max clients reached. Connection rejected.\n");
