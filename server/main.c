@@ -13,6 +13,7 @@
 #define BUFFER_SIZE 1024
 #define MAX_CLIENTS 10
 #define START_POS 456
+#define MAXDATASIZE 100
 
 typedef struct client {
     int posX;
@@ -24,6 +25,19 @@ Client client_sockets[MAX_CLIENTS];
 int client_count = 0;
 pthread_mutex_t client_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+void broadcast_pos(int sender_socket, char data[]) {
+    int x, y;
+    sscanf(data, "pos-(%d,%d)", &x, &y);
+    char buf[MAXDATASIZE];
+    int n = snprintf(buf, MAXDATASIZE-1, "pos_%d-(%d,%d)", sender_socket, x, y);
+    pthread_mutex_lock(&client_mutex);
+    for (int i = 0; i < client_count; i++) {
+        if (client_sockets[i].socket != sender_socket) {
+            send(client_sockets[i].socket, buf, n, 0);
+        }
+    }
+    pthread_mutex_unlock(&client_mutex);
+}
 void client_join_leave(bool is_join, int sender_socket) {
     char buf[20];
     int n = snprintf(buf, sizeof(buf), is_join ? "join_%d" : "leave_%d", sender_socket);
@@ -68,6 +82,11 @@ void *handle_client(void *arg) {
         if (strncmp(buffer, "close", 5) == 0) {
             printf("Closing connection as requested by client.\n");
             break;
+        }
+
+        if (strncmp(buffer, "pos-", 4) == 0) {
+            broadcast_pos(new_socket, buffer);
+            continue;
         }
 
         if (strncmp(buffer, "get", 3) == 0) {
