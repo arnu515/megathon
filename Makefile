@@ -10,4 +10,7 @@ run: game
 
 .PHONY: clean
 clean:
-	@rm -rf ./game
+	@rm -rf ./game ./server
+
+server: server/main.c
+	@cc- -I./server -o server server/main.c
