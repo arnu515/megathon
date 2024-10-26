@@ -23,7 +23,7 @@ ssize_t receive_data(int sockfd, char *buf);
 ssize_t send_data(int, const char *, size_t);
 void connect_to_server(char *, struct addrinfo **, int *, char []);
 void fetch_and_set_starting_pos(int, int *, int *);
-void get_clients(int);
+void get_clients(int, void (*)(int, int));
 
 // Function definitions
 #ifdef _CLIENT_IMPLEMENTATION
@@ -122,7 +122,7 @@ void fetch_and_set_starting_pos(int sockfd, int *x, int *y) {
   sscanf(buf, "(%d,%d)", x, y);
 }
 
-void get_clients(int sockfd) {
+void get_clients(int sockfd, void (*on_new)(int, int)) {
   send_data(sockfd, "get", 3);
   char buf[MAXDATASIZE] = {0};
   if (receive_data(sockfd, buf) < 0) {
@@ -138,7 +138,10 @@ void get_clients(int sockfd) {
       TraceLog(LOG_FATAL, "Could not get other clients");
       exit(1);
     }
-    printf("New client: %s\n", buf);
+    int x, y;
+    sscanf(buf, "(%d,%d)", &x, &y);
+    printf("Got client: x=%d, y=%d", x, y);
+    on_new(x, y);
   }
 }
 
