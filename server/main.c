@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <pthread.h>
+#include "util.c"
 
 #define PORT 8080
 #define BUFFER_SIZE 1024
@@ -130,6 +131,7 @@ int main() {
             client_sockets[client_count].posX = START_POS;
             client_sockets[client_count].posY = START_POS;
             client_sockets[client_count++].socket = new_socket;
+            write_posn(new_socket, START_POS, START_POS);
         } else {
             printf("Max clients reached. Connection rejected.\n");
             close(new_socket);
