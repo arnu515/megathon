@@ -24,6 +24,7 @@ ssize_t send_data(int, const char *, size_t);
 void connect_to_server(char *, struct addrinfo **, int *, char []);
 void fetch_and_set_starting_pos(int, int *, int *, int *);
 void get_clients(int, void (*)(int, int, int));
+void send_pos(int sockfd, int x, int y);
 
 // Function definitions
 #ifdef _CLIENT_IMPLEMENTATION
@@ -143,6 +144,12 @@ void get_clients(int sockfd, void (*on_new)(int, int, int)) {
     printf("Got client: x=%d, y=%d", x, y);
     on_new(id, x, y);
   }
+}
+
+void send_pos(int sockfd, int x, int y) {
+  char buf[32] = {0};
+  int n = snprintf(buf, 31, "pos-(%d,%d)", x, y);
+  send_data(sockfd, buf, n);
 }
 
 #endif
