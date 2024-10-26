@@ -15,9 +15,40 @@
 #include <sys/wait.h>
 #include <signal.h>
 
+#include "util.c"
+
 #define PORT "3490" // the port users will be connecting to
 
 #define BACKLOG 10 // how many pending connections queue will hold
+#define BUF_SIZE 1024
+#define MAX_CLIENTS 256
+
+#define CONN_CLOSE(sockfd) do {\
+    close(sockfd);\
+    // Client *prev = n->prev;\
+    // prev->next = n->next;\
+    // n->next->prev = prev;\
+    // free(n);\
+    exit(0);\
+} while (0);
+
+typedef struct client {
+    struct client *next;
+    struct client *prev;
+    int posX;
+    int posY;
+    int sock;
+} Client;
+Client clients = {0};
+
+void handle_message(int sockfd, char buf[]) {
+    if (strncmp(buf, "get", 3)) {
+        size_t num = 0;
+        for (Client *curr = clients.next; curr != NULL; curr = curr->next) num++;
+        write_num(sockfd, num);
+        for (Client *curr = clients.next; curr != NULL; curr = curr->next) write_posn(sockfd, curr->posX, curr->posY);
+    }
+}
 
 void sigchld_handler(int s)
 {
@@ -44,8 +75,7 @@ void *get_in_addr(struct sockaddr *sa)
 int main(void)
 {
     int sockfd, new_fd; // listen on sock_fd, new connection on new_fd
-    struct addrinfo hints, *servinfo, *p;
-    struct sockaddr_storage their_addr; // connector's address information
+    struct addrinfo hints, *servinfo, *p; struct sockaddr_storage their_addr; // connector's address information
     socklen_t sin_size;
     struct sigaction sa;
     int yes = 1;
@@ -133,10 +163,36 @@ int main(void)
         if (!fork())
         {                  // this is the child process
             close(sockfd); // child doesn't need the listener
-            if (send(new_fd, "Hello, world!", 13, 0) == -1)
-                perror("send");
-            close(new_fd);
-            exit(0);
+            Client *n = calloc(1, sizeof (Client));
+            n->sock = sockfd;
+            n->next = clients.next;
+            if (clients.next != NULL) clients.next->prev = n;
+            clients.next = n;
+            // if (send(new_fd, "Hello, world!", 13, 0) == -1)
+            //     perror("send");
+            while(1) {
+                char buf[BUF_SIZE] = {0};
+                if (recv(new_fd, buf, BUF_SIZE, 0) <= 0) {
+                    perror("recv");
+                    close(sockfd);
+                    Client *prev = n->prev;
+                    if (prev) prev->next = n->next;
+                    if (n->next) n->next->prev = prev;
+                    free(n);
+                    exit(0);
+                }
+                printf("Recv from %d: %s\n", new_fd, buf);
+                if (strncmp(buf, "stop", 4) == 0) {
+                    close(sockfd);
+                    Client *prev = n->prev;
+                    if (prev) prev->next = n->next;
+                    if (n->next) n->next->prev = prev;
+                    free(n);
+                    exit(0);
+                } else {
+                    handle_message(sockfd, buf);
+                }
+            }
         }
         close(new_fd); // parent doesn't need this
     }
