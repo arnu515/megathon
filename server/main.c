@@ -1,203 +1,146 @@
-/*
-** server.c -- a stream socket server demo
-*/
-
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <errno.h>
 #include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netdb.h>
+#include <unistd.h>
 #include <arpa/inet.h>
+#include <sys/types.h>
 #include <sys/wait.h>
-#include <signal.h>
+#include <pthread.h>
 
-#include "util.c"
-
-#define PORT "3490" // the port users will be connecting to
-
-#define BACKLOG 10 // how many pending connections queue will hold
-#define BUF_SIZE 1024
-#define MAX_CLIENTS 256
-
-#define CONN_CLOSE(sockfd) do {\
-    close(sockfd);\
-    // Client *prev = n->prev;\
-    // prev->next = n->next;\
-    // n->next->prev = prev;\
-    // free(n);\
-    exit(0);\
-} while (0);
+#define PORT 8080
+#define BUFFER_SIZE 1024
+#define MAX_CLIENTS 10
 
 typedef struct client {
-    struct client *next;
-    struct client *prev;
     int posX;
     int posY;
-    int sock;
+    int socket;
 } Client;
-Client clients = {0};
 
-void handle_message(int sockfd, char buf[]) {
-    if (strncmp(buf, "get", 3)) {
-        size_t num = 0;
-        for (Client *curr = clients.next; curr != NULL; curr = curr->next) num++;
-        write_num(sockfd, num);
-        for (Client *curr = clients.next; curr != NULL; curr = curr->next) write_posn(sockfd, curr->posX, curr->posY);
+Client client_sockets[MAX_CLIENTS];
+int client_count = 0;
+pthread_mutex_t client_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+void broadcast_message(const char *message, int sender_socket) {
+    pthread_mutex_lock(&client_mutex);
+    for (int i = 0; i < client_count; i++) {
+        if (client_sockets[i].socket != sender_socket) {
+            send(client_sockets[i].socket, message, strlen(message), 0);
+        }
     }
+    pthread_mutex_unlock(&client_mutex);
 }
 
-void sigchld_handler(int s)
-{
-    // waitpid() might overwrite errno, so we save and restore it:
-    int saved_errno = errno;
+void *handle_client(void *arg) {
+    int new_socket = *(int *)arg;
+    char buffer[BUFFER_SIZE] = {0};
 
-    while (waitpid(-1, NULL, WNOHANG) > 0)
-        ;
+    while (1) {
+        int valread = read(new_socket, buffer, BUFFER_SIZE);
+        if (valread <= 0) {
+            perror("read");
+            break; // Exit the loop on read error
+        }
 
-    errno = saved_errno;
+        // Null-terminate the buffer to treat it as a string
+        buffer[valread] = '\0';
+
+        printf("Received: %s\n", buffer);
+
+        // Check if the client sent "close"
+        if (strncmp(buffer, "close", 5) == 0) {
+            printf("Closing connection as requested by client.\n");
+            break; // Exit the loop to close the connection
+        }
+
+        // Check if the client sent "broadcast"
+        if (strncmp(buffer, "broadcast", 9) == 0) {
+            broadcast_message("Hello world\n", new_socket);
+            continue; // Skip echoing back
+        }
+
+        // if (strncmp(buffer, "get", ))
+
+        // Echoing back the received data
+        send(new_socket, buffer, valread, 0);
+        printf("Echoed back: %s\n", buffer);
+    }
+
+    // Close the connection and remove the socket from the list
+    close(new_socket);
+    
+    pthread_mutex_lock(&client_mutex);
+    for (int i = 0; i < client_count; i++) {
+        if (client_sockets[i].socket == new_socket) {
+            client_sockets[i] = client_sockets[client_count - 1]; // Replace with last socket
+            client_count--;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&client_mutex);
+
+    return NULL;
 }
 
-// get sockaddr, IPv4 or IPv6:
-void *get_in_addr(struct sockaddr *sa)
-{
-    if (sa->sa_family == AF_INET)
-    {
-        return &(((struct sockaddr_in *)sa)->sin_addr);
+int main() {
+    int server_fd, new_socket;
+    struct sockaddr_in address;
+    int opt = 1;
+    int addrlen = sizeof(address);
+    
+    memset(client_sockets, 0, sizeof(client_sockets));
+
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+        perror("socket failed");
+        exit(EXIT_FAILURE);
     }
 
-    return &(((struct sockaddr_in6 *)sa)->sin6_addr);
-}
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt))) {
+        perror("setsockopt");
+        exit(EXIT_FAILURE);
+    }
+    
+    address.sin_family = AF_INET; // IPv4
+    address.sin_addr.s_addr = INADDR_ANY; // Any incoming interface
+    address.sin_port = htons(PORT);
 
-int main(void)
-{
-    int sockfd, new_fd; // listen on sock_fd, new connection on new_fd
-    struct addrinfo hints, *servinfo, *p; struct sockaddr_storage their_addr; // connector's address information
-    socklen_t sin_size;
-    struct sigaction sa;
-    int yes = 1;
-    char s[INET6_ADDRSTRLEN];
-    int rv;
-
-    memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = AI_PASSIVE; // use my IP
-
-    if ((rv = getaddrinfo(NULL, PORT, &hints, &servinfo)) != 0)
-    {
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-        return 1;
+    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
+        perror("bind failed");
+        exit(EXIT_FAILURE);
     }
 
-    // loop through all the results and bind to the first we can
-    for (p = servinfo; p != NULL; p = p->ai_next)
-    {
-        if ((sockfd = socket(p->ai_family, p->ai_socktype,
-                             p->ai_protocol)) == -1)
-        {
-            perror("server: socket");
-            continue;
-        }
-
-        if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes,
-                       sizeof(int)) == -1)
-        {
-            perror("setsockopt");
-            exit(1);
-        }
-
-        if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1)
-        {
-            close(sockfd);
-            perror("server: bind");
-            continue;
-        }
-
-        break;
-    }
-
-    freeaddrinfo(servinfo); // all done with this structure
-
-    if (p == NULL)
-    {
-        fprintf(stderr, "server: failed to bind\n");
-        exit(1);
-    }
-
-    if (listen(sockfd, BACKLOG) == -1)
-    {
+    if (listen(server_fd, 3) < 0) {
         perror("listen");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
-    sa.sa_handler = sigchld_handler; // reap all dead processes
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = SA_RESTART;
-    if (sigaction(SIGCHLD, &sa, NULL) == -1)
-    {
-        perror("sigaction");
-        exit(1);
-    }
+    printf("Echo server is listening on port %d\n", PORT);
 
-    printf("server: waiting for connections...\n");
-
-    while (1)
-    { // main accept() loop
-        sin_size = sizeof their_addr;
-        new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
-        if (new_fd == -1)
-        {
+    while (1) {
+        if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0) {
             perror("accept");
             continue;
         }
 
-        inet_ntop(their_addr.ss_family,
-                  get_in_addr((struct sockaddr *)&their_addr),
-                  s, sizeof s);
-        printf("server: got connection from %s\n", s);
+        printf("New connection established %d\n", client_count);
 
-        if (!fork())
-        {                  // this is the child process
-            close(sockfd); // child doesn't need the listener
-            Client *n = calloc(1, sizeof (Client));
-            n->sock = sockfd;
-            n->next = clients.next;
-            if (clients.next != NULL) clients.next->prev = n;
-            clients.next = n;
-            // if (send(new_fd, "Hello, world!", 13, 0) == -1)
-            //     perror("send");
-            while(1) {
-                char buf[BUF_SIZE] = {0};
-                if (recv(new_fd, buf, BUF_SIZE, 0) <= 0) {
-                    perror("recv");
-                    close(sockfd);
-                    Client *prev = n->prev;
-                    if (prev) prev->next = n->next;
-                    if (n->next) n->next->prev = prev;
-                    free(n);
-                    exit(0);
-                }
-                printf("Recv from %d: %s\n", new_fd, buf);
-                if (strncmp(buf, "stop", 4) == 0) {
-                    close(sockfd);
-                    Client *prev = n->prev;
-                    if (prev) prev->next = n->next;
-                    if (n->next) n->next->prev = prev;
-                    free(n);
-                    exit(0);
-                } else {
-                    handle_message(sockfd, buf);
-                }
-            }
+        pthread_mutex_lock(&client_mutex);
+        if (client_count < MAX_CLIENTS) {
+            memset(&client_sockets[client_count++], 0, sizeof(Client));
+        } else {
+            printf("Max clients reached. Connection rejected.\n");
+            close(new_socket);
         }
-        close(new_fd); // parent doesn't need this
+        pthread_mutex_unlock(&client_mutex);
+
+        pthread_t thread_id;
+        if (pthread_create(&thread_id, NULL, handle_client, (void *)&new_socket) != 0) {
+            perror("pthread_create failed");
+            close(new_socket);
+        }
+        pthread_detach(thread_id);
     }
 
-    printf("Hello World");
-
+    close(server_fd);
     return 0;
 }
