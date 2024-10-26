@@ -126,7 +126,8 @@ int main() {
 
         pthread_mutex_lock(&client_mutex);
         if (client_count < MAX_CLIENTS) {
-            memset(&client_sockets[client_count++], 0, sizeof(Client));
+            memset(&client_sockets[client_count], 0, sizeof(Client));
+            client_sockets[client_count++].socket = new_socket;
         } else {
             printf("Max clients reached. Connection rejected.\n");
             close(new_socket);
