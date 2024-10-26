@@ -33,6 +33,17 @@ void broadcast_message(const char *message, int sender_socket) {
     pthread_mutex_unlock(&client_mutex);
 }
 
+void send_all_coords(int socket) {
+    write_num(socket, client_count-1);
+    pthread_mutex_lock(&client_mutex);
+    for (int i = 0; i < client_count; i++) {
+        if (client_sockets[i].socket != socket) {
+            write_posn(socket, client_sockets[i].posX, client_sockets[i].posY);
+        }
+    }
+    pthread_mutex_unlock(&client_mutex);
+}
+
 void *handle_client(void *arg) {
     int new_socket = *(int *)arg;
     char buffer[BUFFER_SIZE] = {0};
@@ -49,19 +60,20 @@ void *handle_client(void *arg) {
 
         printf("Received: %s\n", buffer);
 
-        // Check if the client sent "close"
         if (strncmp(buffer, "close", 5) == 0) {
             printf("Closing connection as requested by client.\n");
-            break; // Exit the loop to close the connection
+            break;
         }
 
-        // Check if the client sent "broadcast"
         if (strncmp(buffer, "broadcast", 9) == 0) {
             broadcast_message("Hello world\n", new_socket);
-            continue; // Skip echoing back
+            continue;
         }
 
-        // if (strncmp(buffer, "get", ))
+        if (strncmp(buffer, "get", 3) == 0) {
+            send_all_coords(new_socket);
+            continue;
+        }
 
         // Echoing back the received data
         send(new_socket, buffer, valread, 0);
