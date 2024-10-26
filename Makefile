@@ -12,5 +12,5 @@ run: game
 clean:
 	@rm -rf ./game ./server
 
-server: server/main.c
-	@cc -I./server -o server server/main.c
+srv: server/main.c
+	@cc -I./server -o ./srv server/main.c
