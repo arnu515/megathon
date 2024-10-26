@@ -23,6 +23,7 @@ ssize_t receive_data(int sockfd, char *buf);
 ssize_t send_data(int, const char *, size_t);
 void connect_to_server(char *, struct addrinfo **, int *, char []);
 void fetch_and_set_starting_pos(int, int *, int *, int *);
+void fetch_and_set_starting_candies(int, int *);
 void get_clients(int, void (*)(int, int, int));
 void send_pos(int sockfd, int x, int y);
 
@@ -121,6 +122,17 @@ void fetch_and_set_starting_pos(int sockfd, int *id, int *x, int *y) {
   }
   TraceLog(LOG_INFO, "Starting coords: %s", buf);
   sscanf(buf, "%d-(%d,%d)", id, x, y);
+}
+
+void fetch_and_set_starting_candies(int sockfd, int *candies) {
+  char buf[MAXDATASIZE] = {0};
+  if (receive_data(sockfd, buf) < 0) {
+    perror("receive");
+    TraceLog(LOG_FATAL, "Could not get other clients");
+    exit(1);
+  }
+  printf("starting with %d candies\n", candies);
+  *candies = atoi(buf);
 }
 
 void get_clients(int sockfd, void (*on_new)(int, int, int)) {
