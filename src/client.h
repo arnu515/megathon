@@ -22,8 +22,8 @@ int setup_conn(struct addrinfo *servinfo, int *sockfd, char *s);
 ssize_t receive_data(int sockfd, char *buf);
 ssize_t send_data(int, const char *, size_t);
 void connect_to_server(char *, struct addrinfo **, int *, char []);
-void fetch_and_set_starting_pos(int, int *, int *);
-void get_clients(int, void (*)(int, int));
+void fetch_and_set_starting_pos(int, int *, int *, int *);
+void get_clients(int, void (*)(int, int, int));
 
 // Function definitions
 #ifdef _CLIENT_IMPLEMENTATION
@@ -111,7 +111,7 @@ void connect_to_server(char *host, struct addrinfo **servinfo, int *sockfd, char
   freeaddrinfo(*servinfo);
 }
 
-void fetch_and_set_starting_pos(int sockfd, int *x, int *y) {
+void fetch_and_set_starting_pos(int sockfd, int *id, int *x, int *y) {
   char buf[MAXDATASIZE] = {0};
   if (receive_data(sockfd, buf) < 0) {
     perror("receive");
@@ -119,10 +119,10 @@ void fetch_and_set_starting_pos(int sockfd, int *x, int *y) {
     exit(1);
   }
   TraceLog(LOG_INFO, "Starting coords: %s", buf);
-  sscanf(buf, "(%d,%d)", x, y);
+  sscanf(buf, "%d-(%d,%d)", id, x, y);
 }
 
-void get_clients(int sockfd, void (*on_new)(int, int)) {
+void get_clients(int sockfd, void (*on_new)(int, int, int)) {
   send_data(sockfd, "get", 3);
   char buf[MAXDATASIZE] = {0};
   if (receive_data(sockfd, buf) < 0) {
@@ -138,10 +138,10 @@ void get_clients(int sockfd, void (*on_new)(int, int)) {
       TraceLog(LOG_FATAL, "Could not get other clients");
       exit(1);
     }
-    int x, y;
-    sscanf(buf, "(%d,%d)", &x, &y);
+    int id, x, y;
+    sscanf(buf, "%d-(%d,%d)", &id, &x, &y);
     printf("Got client: x=%d, y=%d", x, y);
-    on_new(x, y);
+    on_new(id, x, y);
   }
 }
 

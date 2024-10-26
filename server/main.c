@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
@@ -23,11 +24,13 @@ Client client_sockets[MAX_CLIENTS];
 int client_count = 0;
 pthread_mutex_t client_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-void broadcast_message(const char *message, int sender_socket) {
+void client_join_leave(bool is_join, int sender_socket) {
+    char buf[20];
+    int n = snprintf(buf, sizeof(buf), is_join ? "join_%d" : "leave_%d", sender_socket);
     pthread_mutex_lock(&client_mutex);
     for (int i = 0; i < client_count; i++) {
         if (client_sockets[i].socket != sender_socket) {
-            send(client_sockets[i].socket, message, strlen(message), 0);
+            send(client_sockets[i].socket, buf, n, 0);
         }
     }
     pthread_mutex_unlock(&client_mutex);
@@ -38,7 +41,7 @@ void send_all_coords(int socket) {
     pthread_mutex_lock(&client_mutex);
     for (int i = 0; i < client_count; i++) {
         if (client_sockets[i].socket != socket) {
-            write_posn(socket, client_sockets[i].posX, client_sockets[i].posY);
+            write_client_posn(socket, client_sockets[i].socket, client_sockets[i].posX, client_sockets[i].posY);
         }
     }
     pthread_mutex_unlock(&client_mutex);
@@ -47,6 +50,8 @@ void send_all_coords(int socket) {
 void *handle_client(void *arg) {
     int new_socket = *(int *)arg;
     char buffer[BUFFER_SIZE] = {0};
+
+    client_join_leave(true, new_socket);
 
     while (1) {
         int valread = read(new_socket, buffer, BUFFER_SIZE);
@@ -65,11 +70,6 @@ void *handle_client(void *arg) {
             break;
         }
 
-        if (strncmp(buffer, "broadcast", 9) == 0) {
-            broadcast_message("Hello world\n", new_socket);
-            continue;
-        }
-
         if (strncmp(buffer, "get", 3) == 0) {
             send_all_coords(new_socket);
             continue;
@@ -81,6 +81,8 @@ void *handle_client(void *arg) {
     }
 
     // Close the connection and remove the socket from the list
+    printf("Client %d disconnected\n", new_socket);
+    client_join_leave(false, new_socket);
     close(new_socket);
     
     pthread_mutex_lock(&client_mutex);
@@ -143,7 +145,7 @@ int main() {
             client_sockets[client_count].posX = START_POS;
             client_sockets[client_count].posY = START_POS;
             client_sockets[client_count++].socket = new_socket;
-            write_posn(new_socket, START_POS, START_POS);
+            write_client_posn(new_socket, new_socket, START_POS, START_POS);
         } else {
             printf("Max clients reached. Connection rejected.\n");
             close(new_socket);

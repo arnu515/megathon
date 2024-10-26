@@ -8,9 +8,9 @@ int write_num(int sockfd, ssize_t num) {
   return send(sockfd, str, n, 0);
 }
 
-int write_posn(int sockfd, int x, int y) {
+int write_client_posn(int sockfd, int clientfd, int x, int y) {
   char str[40];
 
-  int n = snprintf(str, sizeof(str), "(%d,%d)", x, y);
+  int n = snprintf(str, sizeof(str), "%d-(%d,%d)", clientfd, x, y);
   return send(sockfd, str, n, 0);
 }
