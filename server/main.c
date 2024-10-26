@@ -13,12 +13,14 @@
 #define BUFFER_SIZE 1024
 #define MAX_CLIENTS 10
 #define START_POS 456
+#define START_CANDIES 0
 #define MAXDATASIZE 100
 
 typedef struct client {
     int posX;
     int posY;
     int socket;
+    int candies;
 } Client;
 
 Client client_sockets[MAX_CLIENTS];
@@ -38,6 +40,7 @@ void broadcast_pos(int sender_socket, char data[]) {
     }
     pthread_mutex_unlock(&client_mutex);
 }
+
 void client_join_leave(bool is_join, int sender_socket) {
     char buf[20];
     int n = is_join ? snprintf(buf, sizeof(buf), "join_%d-(%d,%d)", sender_socket, START_POS, START_POS) : snprintf(buf, sizeof(buf), "leave_%d", sender_socket);
@@ -163,8 +166,10 @@ int main() {
         if (client_count < MAX_CLIENTS) {
             client_sockets[client_count].posX = START_POS;
             client_sockets[client_count].posY = START_POS;
+            client_sockets[client_count].candies = START_CANDIES;
             client_sockets[client_count++].socket = new_socket;
             write_client_posn(new_socket, new_socket, START_POS, START_POS);
+            write_num(new_socket, START_CANDIES);
         } else {
             printf("Max clients reached. Connection rejected.\n");
             close(new_socket);
