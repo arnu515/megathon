@@ -40,7 +40,7 @@ void broadcast_pos(int sender_socket, char data[]) {
 }
 void client_join_leave(bool is_join, int sender_socket) {
     char buf[20];
-    int n = snprintf(buf, sizeof(buf), is_join ? "join_%d" : "leave_%d", sender_socket);
+    int n = is_join ? snprintf(buf, sizeof(buf), "join_%d-(%d,%d)", sender_socket, START_POS, START_POS) : snprintf(buf, sizeof(buf), "leave_%d", sender_socket);
     pthread_mutex_lock(&client_mutex);
     for (int i = 0; i < client_count; i++) {
         if (client_sockets[i].socket != sender_socket) {
