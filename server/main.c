@@ -28,6 +28,7 @@ typedef struct client {
 Client client_sockets[MAX_CLIENTS];
 int client_count = 0;
 pthread_mutex_t client_mutex = PTHREAD_MUTEX_INITIALIZER;
+int current_prompt = 1;
 
 void broadcast_pos(int sender_socket, char data[]) {
     int x, y;
@@ -229,6 +230,8 @@ int main() {
     struct sockaddr_in address;
     int opt = 1;
     int addrlen = sizeof(address);
+
+    srand(time(NULL));
     
     memset(client_sockets, 0, sizeof(client_sockets));
 
@@ -265,6 +268,7 @@ int main() {
         }
 
         printf("New connection established %d\n", client_count);
+        if (client_count == 0) current_prompt = rand() % 2 + 1;
 
         pthread_mutex_lock(&client_mutex);
         if (client_count < MAX_CLIENTS) {
@@ -274,6 +278,7 @@ int main() {
             client_sockets[client_count++].socket = new_socket;
             write_client_posn(new_socket, new_socket, START_POS, START_POS);
             write_num(new_socket, START_CANDIES);
+            write_num(new_socket, current_prompt);
         } else {
             printf("Max clients reached. Connection rejected.\n");
             close(new_socket);

@@ -20,7 +20,7 @@ char s[INET6_ADDRSTRLEN];
 #define CANDY_Y 20
 #define CANDY_WIDTH 120
 #define CANDY_HEIGHT 50
-#define CANDY_ALPHA 60
+#define CANDY_ALPHA 100
 
 void draw_candies(Texture2D sprite, int candies) {
   char buf[3];
@@ -121,25 +121,60 @@ Wall walls[] = {
 };
 
 Pumpkin pumpkins[] = {
-    {150, 50, 0, true}, //1
-    {350, 50, 0, true},//2
-    {550, 50, 0, true},//3
-    {750, 50, 0, true},//4
-    {50, 150, 0, true},//5
-    {50, 350, 0, true},//6
-    {50, 550, 0, true},//7
-    {50, 750, 0, true},//8
-    {150, 800, 0, true},//9
-    {350, 800, 0, true},//10
-    {550, 800, 0, true},//11
-    {800, 740, 0, true},//12
-    {800, 150, 0, true},//13
-    {800, 350, 0, true},//14
+    {150, 50, 1, true}, //1
+    {350, 50, 1, true},//2
+    {550, 50, 1, true},//3
+    {750, 50, 1, true},//4
+    {50, 150, 1, true},//5
+    {50, 350, 1, true},//6
+    {50, 550, 1, true},//7
+    {50, 750, 1, true},//8
+    {150, 800, 1, true},//9
+    {350, 800, 1, true},//10
+    {550, 800, 1, true},//11
+    {800, 740, 1, true},//12
+    {800, 150, 1, true},//13
+    {800, 350, 1, true},//14
     {800, 550, 1, true},//15
-    {715, 800, 0, true},//16
+    {715, 800, 1, true},//16
 };
 
 const size_t NUM_PUMPKINS = sizeof(pumpkins) / sizeof(Pumpkin);
+
+const char prompts[][48] = {
+    "\"From the sum of my past, my future will grow,",
+    "In a sequence of numbers, I endlessly flow.\"",
+    "\"Sixteen pumpkins, with candies alright,",
+    "Squares alone hold tricks inside!\""
+};
+
+void setup_p1() {
+    for (int i = 0; i < NUM_PUMPKINS; i++) 
+        if (i+1 == 1 || i+1 == 2 || i+1 == 3 || i+1 == 5|| i+1 == 8 || i+1 == 11)
+            pumpkins[i].delta = 1;
+        else
+            pumpkins[i].delta = 0;
+}
+
+void setup_p2() {
+    for (int i = 0; i < NUM_PUMPKINS; i++) 
+        if (i+1 == 1 || i+1 == 4 || i+1 == 9 || i+1 == 16)
+            pumpkins[i].delta = 0;
+        else
+            pumpkins[i].delta = 1;
+}
+
+void draw_prompt(int prompt, int w, int h) {
+    int idx = (prompt-1) * 2;
+    const char *fl = prompts[idx];
+    const char *sl = prompts[idx+1];
+    int fll = MeasureText(fl, 25);
+    int sll = MeasureText(sl, 25);
+    DrawRectangle((w-fll)/2-2, 1, fll+5, 25, (Color){0, 0, 0, CANDY_ALPHA});
+    DrawText(fl, (w-fll)/2, 1, 25, WHITE);
+    DrawRectangle((w-sll)/2-2, 26, sll+5, 25, (Color){0, 0, 0, CANDY_ALPHA});
+    DrawText(sl, (w-sll)/2, 26, 25, WHITE);
+}
 
 bool are_all_good_pumpkins_gone() {
     bool res = true;
@@ -284,28 +319,32 @@ void MoveGhosts(Ghost ghosts[], int numGhosts) {
     }
 }
 
-
-
-
-
-
-
+const char title[] = "Crazy Candy Chaos";
+const char st[] = "Press any key to start";
+const char t[] = "Game over!";
+const char st1[] = "You lost all your candies.";
+const char sm[] = "Press any key to exit";
+const char c[] = "Connecting...";
+const char inst1[] = "Instructions:";
+const char inst2[] = "The riddle on top shows the way,";
+const char inst3[] = "Pick the right pumpkins, don't go astray,";
+const char inst4[] = "For the right ones contain candy you crave,";
+const char inst5[] = "And the wrong ones shall take it all away.";
 
 int main(void) {
-    const char wl[] = "Crazy Candy Chaos";
-    const char st[] = "Press any key to start";
-    const char t[] = "Game over!";
-    const char st1[] = "You lost all your candies.";
-    const char sm[] = "Press any key to exit";
-    const char c[] = "Connecting...";
 
     InitWindow(900, 900, "YAAAS");
     int w = GetScreenWidth(), h = GetScreenHeight();
     while (GetKeyPressed() == 0) {
         BeginDrawing();
             ClearBackground(BLUE);  // Set a background color for the start screen
-            DrawText(wl, (w-MeasureText(wl, 50))/2, h/2-200, 50, WHITE);
-            DrawText(st, (w-MeasureText(st, 20))/2, h/2+100, 20, WHITE);
+            DrawText(title, (w-MeasureText(title, 50))/2, h/2-200, 50, WHITE);
+            DrawText(st, (w-MeasureText(st, 30))/2, h/2-100, 30, WHITE);
+            DrawText(inst1, 50, h/2+100, 20, WHITE);
+            DrawText(inst2, 50, h/2+150, 20, WHITE);
+            DrawText(inst3, 50, h/2+180, 20, WHITE);
+            DrawText(inst4, 50, h/2+210, 20, WHITE);
+            DrawText(inst5, 50, h/2+240, 20, WHITE);
         EndDrawing();
     }
 
@@ -325,15 +364,19 @@ int main(void) {
     Texture2D candyTexture = LoadTexture("./wall/candy.png");
     Texture2D ghostTexture = LoadTexture("./wall/ghost.png");
 
-  int id, x, y, candies;
+  int id, x, y, candies, prompt;
 
   TraceLog(LOG_INFO, "Connecting to server");
   connect_to_server(HOST, &servinfo, &sockfd, s);
   TraceLog(LOG_INFO, "Getting start pos");
   fetch_and_set_starting_pos(sockfd, &id, &x, &y);
   fetch_and_set_starting_candies(sockfd, &candies);
+  fetch_and_set_starting_prompt(sockfd, &prompt);
   TraceLog(LOG_INFO, "Getting other connected clients");
   get_clients(sockfd, add_client);
+
+  if (prompt == 1) setup_p1();
+  else if (prompt == 2) setup_p2();
 
   SetTargetFPS(30);
 
@@ -388,7 +431,7 @@ int main(void) {
 
 
         // Check if player collides with the ghost
-        if (false && CheckCollisionWithAnyGhost(x, y, ghosts, NUM_GHOSTS)) {
+        if (CheckCollisionWithAnyGhost(x, y, ghosts, NUM_GHOSTS)) {
             x = 450;
             y = 450;
             candies--;
@@ -438,6 +481,7 @@ int main(void) {
             // Draw player sprite
             DrawTextureRec(sprites[id%3], sourceRec, (Vector2){ x, y }, WHITE);
 
+          draw_prompt(prompt, w, h);
 
             // Draw candy score
           draw_candies(candyTexture, candies);
