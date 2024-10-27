@@ -290,21 +290,26 @@ void MoveGhosts(Ghost ghosts[], int numGhosts) {
 
 
 int main(void) {
+    const char wl[] = "Crazy Candy Something";
+    const char s[] = "Press any key to start";
+    const char t[] = "Game over!";
+    const char st1[] = "You lost all your candies.";
+    const char sm[] = "Press any key to exit";
+    const char c[] = "Connecting...";
+
     InitWindow(900, 900, "YAAAS");
-    while (!WindowShouldClose()) {
+    int w = GetScreenWidth(), h = GetScreenHeight();
+    while (GetKeyPressed() == 0) {
         BeginDrawing();
             ClearBackground(BLUE);  // Set a background color for the start screen
-            DrawText("Welcome to the Game!", 300, 300, 40, WHITE);
-            DrawText("Press enter to start", 300, 400, 20, WHITE);
+            DrawText(wl, (w-MeasureText(wl, 50))/2, h/2-100, 50, WHITE);
+            DrawText(s, (w-MeasureText(s, 30))/2, h/2, 30, WHITE);
         EndDrawing();
-
-        if (IsKeyPressed(KEY_ENTER)) { // Wait for any key press
-            break; // Exit the start screen loop
-        }
     }
+
   BeginDrawing();
     ClearBackground(GRAY);
-    DrawText("connecting...", 456, 456, 20, RED);
+    DrawText(c, (w-MeasureText(c, 30))/2, h/2, 30, WHITE);
   EndDrawing();
     
     Rectangle sourceRec = { 0, 0, 50, 50 };
@@ -332,10 +337,6 @@ int main(void) {
             while (GetKeyPressed() == 0) {
                 BeginDrawing();
                     ClearBackground(BLACK);
-                    const char t[] = "Game over!";
-                    const char st1[] = "You lost all your candies.";
-                    const char sm[] = "Press any key to exit";
-                    int w = GetScreenWidth(), h = GetScreenHeight();
                     DrawText(t, (w-MeasureText(t, 50))/2, h/2-100, 50, RED);
                     DrawText(st1, (w-MeasureText(st1, 30))/2, h/2, 30, RED);
                     DrawText(sm, (w-MeasureText(st1, 20))/2, 800, 20, RED);
