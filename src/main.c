@@ -1,6 +1,68 @@
-#include "raylib.h"
+#include "../raylib/include/raylib.h"
 #include <netdb.h>
 #include <netinet/in.h>
+#include <stdio.h>
+
+#include "draw_clients.c"
+
+#define _CLIENT_IMPLEMENTATION
+#include "client.h"
+
+struct addrinfo *servinfo;
+int sockfd;
+char s[INET6_ADDRSTRLEN];
+
+#define HOST "127.0.0.1"
+
+void listen_for_data(int socket) {
+  char buffer[MAXDATASIZE];
+  ssize_t bytes_received;
+  // Receive data from the server in a non-blocking way
+  fd_set read_fds;
+  FD_ZERO(&read_fds);
+  FD_SET(socket, &read_fds);
+
+  struct timeval timeout;
+  timeout.tv_sec = 0;
+  timeout.tv_usec = 100000; // 100 ms
+
+  if (select(socket + 1, &read_fds, NULL, NULL, &timeout) > 0) {
+    if (FD_ISSET(socket, &read_fds)) {
+      bytes_received = receive_data(socket, buffer, MSG_DONTWAIT);
+      if (bytes_received > 0) {
+        // Print the received data to the console
+        buffer[bytes_received] = '\0';
+        if (strncmp(buffer, "join_", 5) == 0) {
+          int nid, x, y;
+          sscanf(buffer, "join_%d-(%d,%d)", &nid, &x, &y);
+          add_client(nid, x, y);
+        } else if (strncmp(buffer, "leave_", 5) == 0) {
+          int nid, x, y;
+          sscanf(buffer, "leave_%d", &nid);
+          remove_client(nid);
+        } else if (strncmp(buffer, "pos_", 4) == 0) {
+          int nid, x, y;
+          sscanf(buffer, "pos_%d-(%d,%d)", &nid, &x, &y);
+          update_client(nid, x, y);
+        }
+        printf("Received: %s\n", buffer);
+      }
+      else if (bytes_received == 0)  // Connection closed by the server
+        TraceLog(LOG_INFO, "Connection closed by the server");
+      else // Error while receiving data
+        TraceLog(LOG_ERROR, "Error while receiving data: %d", errno);
+    }
+  }
+}
+
+#define CANDY_X 20
+#define CANDY_Y 20
+
+void draw_candies(Texture2D sprite, int candies) {
+  char buf[20];
+  DrawTexture(sprite, CANDY_X, CANDY_Y, WHITE);
+  DrawText(buf, CANDY_X + 20, CANDY_Y, 10, WHITE);
+}
 
 #define WALL_WIDTH 50
 #define WALL_HEIGHT 50
@@ -25,8 +87,7 @@ typedef struct Ghost {
 Ghost ghosts[NUM_GHOSTS] = {
     {150, 150, 150, 150, 450, 150, 3},
     {200, 150, 200, 150, 400, 150, 3},
-    {150, 200, 150, 200, 150, 400, 3},
-    {700, 150, 700, 150, 500, 150, 3},
+    {150, 200, 150, 200, 150, 400, 3}, {700, 150, 700, 150, 500, 150, 3},
     {150, 650, 150, 650, 150, 500, 3},
 };
 
@@ -171,20 +232,32 @@ void MoveGhosts(Ghost ghosts[], int numGhosts) {
 
 int main(void) {
     InitWindow(900, 900, "YAAAS");
+  BeginDrawing();
+    ClearBackground((Color){0, 0, 0, 0});
+    DrawText("connecting...", 456, 456, 20, RAYWHITE);
+  EndDrawing();
     
     Rectangle sourceRec = { 0, 0, 50, 50 };
     Texture2D sprite = LoadTexture("./Finals/Girl_Final.png");
     Texture2D wallTexture = LoadTexture("./wall/sprite.png");
     Texture2D pumpkinTexture = LoadTexture("./wall/candy.png");
+    Texture2D candyTexture = LoadTexture("./wall/candy.png");
     Texture2D ghostTexture = LoadTexture("./Finals/Trader_Final.png");
 
-    int x = 456;
-    int y = 456;
-    int score = 0;  // Initialize score
+  int id, x, y, candies;
 
-    SetTargetFPS(30);
+  TraceLog(LOG_INFO, "Connecting to server");
+  connect_to_server(HOST, &servinfo, &sockfd, s);
+  TraceLog(LOG_INFO, "Getting start pos");
+  fetch_and_set_starting_pos(sockfd, &id, &x, &y);
+  fetch_and_set_starting_candies(sockfd, &candies);
+  TraceLog(LOG_INFO, "Getting other connected clients");
+  get_clients(sockfd, add_client);
+
+  SetTargetFPS(30);
 
     while (!WindowShouldClose()) {
+        listen_for_data(sockfd);
         int prevX = x;
         int prevY = y;
 
@@ -200,20 +273,20 @@ int main(void) {
         }
 
         // Check collisions with pumpkins
-        CheckCollisionWithPumpkins(x, y, &score);
+        CheckCollisionWithPumpkins(x, y, &candies);
         MoveGhosts(ghosts, NUM_GHOSTS);
 
 
         // Check if player collides with the ghost
-        if (CheckCollisionWithAnyGhost(x, y, ghosts, NUM_GHOSTS)) {
-    score = (score > 0) ? score - 1 : 0;
-    if (score == 0) {
-        DrawText("Game Over!", GetScreenWidth() / 2 - 50, GetScreenHeight() / 2, 40, RED);
-        EndDrawing();
-        break;
-    }
-}
-
+//         if (CheckCollisionWithAnyGhost(x, y, ghosts, NUM_GHOSTS)) {
+//     candies = (candies > 0) ? candies - 1 : 0;
+//     if (candies == 0) {
+//         DrawText("Game Over!", GetScreenWidth() / 2 - 50, GetScreenHeight() / 2, 40, RED);
+//         EndDrawing();
+//         break;
+//     }
+// }
+        if (x != prevX || y != prevY) send_pos(sockfd, x, y);
 
         BeginDrawing();
             ClearBackground((Color){0, 0, 0, 0});
@@ -245,8 +318,12 @@ int main(void) {
             // Draw player sprite
             DrawTextureRec(sprite, sourceRec, (Vector2){ x, y }, WHITE);
 
-            // Display the score
-            DrawText(TextFormat("Score: %d", score), 10, 10, 20, WHITE);
+            // Draw candy score
+          draw_candies(candyTexture, candies);
+
+            // Draw other players
+          draw_clients(sprite, sourceRec);
+
             //Draw ghost
             
         EndDrawing();
@@ -257,5 +334,6 @@ int main(void) {
     UnloadTexture(pumpkinTexture);  // Unload pumpkin texture
     CloseWindow();
 
-    return 0;
+  free_clients(root.next);
+  return 0;
 }
