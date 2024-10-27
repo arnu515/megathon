@@ -46,6 +46,23 @@ void broadcast_pos(int sender_socket, char data[]) {
     pthread_mutex_unlock(&client_mutex);
 }
 
+void set_candies(int sender_socket, char data[]) {
+    int candies;
+    sscanf(data, "candies-(%d)", &candies);
+    if (candies < 0) {
+        printf("Client %d has lost the game (candies: %d)", sender_socket, candies);
+        send(sender_socket, "lose", 4, 0);
+        return;
+    }
+    pthread_mutex_lock(&client_mutex);
+    for (int i = 0; i < client_count; i++) {
+        if (client_sockets[i].socket == sender_socket) {
+            client_sockets[i].candies = candies;
+        }
+    }
+    pthread_mutex_unlock(&client_mutex);
+}
+
 void client_join_leave(bool is_join, int sender_socket) {
     char buf[20];
     int n = is_join ? snprintf(buf, sizeof(buf), "join_%d-(%d,%d)\n", sender_socket, START_POS, START_POS) : snprintf(buf, sizeof(buf), "leave_%d\n", sender_socket);
@@ -95,6 +112,11 @@ void *handle_client(void *arg) {
 
         if (strncmp(buffer, "pos-", 4) == 0) {
             broadcast_pos(new_socket, buffer);
+            continue;
+        }
+
+        if (strncmp(buffer, "candies-", 8) == 0) {
+            set_candies(new_socket, buffer);
             continue;
         }
 
