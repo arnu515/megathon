@@ -65,11 +65,12 @@ void listen_for_data(int socket) {
 #define CANDY_Y 20
 #define CANDY_WIDTH 120
 #define CANDY_HEIGHT 50
+#define CANDY_ALPHA 60
 
 void draw_candies(Texture2D sprite, int candies) {
   char buf[3];
   snprintf(buf, 3, "%.2d", candies);
-  DrawRectangle(CANDY_X, CANDY_Y-5, CANDY_WIDTH, CANDY_HEIGHT, (Color){0, 0, 0, 40});
+  DrawRectangle(CANDY_X, CANDY_Y-5, CANDY_WIDTH, CANDY_HEIGHT, (Color){0, 0, 0, CANDY_ALPHA});
   DrawTexture(sprite, CANDY_X, CANDY_Y, WHITE);
   DrawText(buf, CANDY_X + CANDY_WIDTH/1.5, CANDY_Y + CANDY_HEIGHT/5.5, 25, WHITE);
 }
@@ -115,17 +116,12 @@ typedef struct Wall {
 } Wall;
 
 // Struct to hold pumpkin positions and visibility status
-typedef struct Pumpkin1 {
+typedef struct Pumpkin {
     int x;
     int y;
+    int delta; // set to 0 to set count to 0
     bool isVisible;  // New flag for visibility
-} Pumpkin1;
-
-typedef struct Pumpkin2 {
-    int x;
-    int y;
-    bool isVisible;  // New flag for visibility
-} Pumpkin2;
+} Pumpkin;
 
 Wall walls[] = {
 
@@ -169,29 +165,25 @@ Wall walls[] = {
 
 };
 
-Pumpkin1 pumpkins1[] = {
-    
-    {350, 50, true},//2
-    {550, 50, true},//3
-    {50, 150, true},//5
-    {50, 350, true},//6
-    {50, 550, true},//7
-    {50, 750, true},//8
-    {350, 800, true},//10
-    {550, 800, true},//11
-    {800, 740, true},//12
-    {800, 150, true},//13
-    {800, 350, true},//14
-    {800, 550, true},//15
-    
+Pumpkin pumpkins[] = {
+    {150, 50, 0, true}, //1
+    {350, 50, 1, true},//2
+    {550, 50, 1, true},//3
+    {750, 50, 0, true},//4
+    {50, 150, 1, true},//5
+    {50, 350, 1, true},//6
+    {50, 550, 1, true},//7
+    {50, 750, 1, true},//8
+    {150, 800, 0, true},//9
+    {350, 800, 1, true},//10
+    {550, 800, 1, true},//11
+    {800, 740, 1, true},//12
+    {800, 150, 1, true},//13
+    {800, 350, 1, true},//14
+    {800, 550, 1, true},//15
+    {715, 800, 0, true},//16
 };
-
-Pumpkin2 pumpkins2[] = {
-    {150, 50, true}, //1
-    {750, 50, true},//4
-    {150, 800, true},//9
-    {715, 800, true},//16
-};
+const size_t NUM_PUMPKINS = sizeof(pumpkins) / sizeof(Pumpkin);
 
 // Function to check collision between player and walls
 bool CheckCollisionWithWalls(int x, int y) {
@@ -208,29 +200,20 @@ bool CheckCollisionWithWalls(int x, int y) {
 // Function to check collision between player and pumpkins
 void CheckCollisionWithPumpkins(int x, int y, int *score) {
     Rectangle playerRect = {x, y, 25, 25};  // Player's bounding box
-    for (int i = 0; i < sizeof(pumpkins1) / sizeof(Pumpkin1); i++) {
-        if (pumpkins1[i].isVisible) {  // Only check visible pumpkins
-            Rectangle pumpkinRect = {pumpkins1[i].x, pumpkins1[i].y, WALL_WIDTH, WALL_HEIGHT};
+    for (int i = 0; i < NUM_PUMPKINS; i++) {
+        if (pumpkins[i].isVisible) {  // Only check visible pumpkins
+            Rectangle pumpkinRect = {pumpkins[i].x, pumpkins[i].y, WALL_WIDTH, WALL_HEIGHT};
             if (CheckCollisionRecs(playerRect, pumpkinRect)) {
-                pumpkins1[i].isVisible = false;  // Hide the pumpkin
-                (*score)++;  // Increment score
+                pumpkins[i].isVisible = false;  // Hide the pumpkin
+                int d = pumpkins[i].delta;
+                if (d == 0) *score = 0;
+                else *score += d;
                 send_candies(sockfd, *score);
             }
         }
     }
 }
-void CheckCollisionWithBadPumpkins(int x, int y, int *score) {
-    Rectangle playerRect = {x, y, 25, 25};  // Player's bounding box
-    for (int i = 0; i < sizeof(pumpkins2) / sizeof(Pumpkin2); i++) {
-        if (pumpkins2[i].isVisible) {  // Only check visible pumpkins
-            Rectangle pumpkinRect = {pumpkins2[i].x, pumpkins2[i].y, WALL_WIDTH, WALL_HEIGHT};
-            if (CheckCollisionRecs(playerRect, pumpkinRect)) {
-                pumpkins2[i].isVisible = false;  // Hide the pumpkin
-                (*score)=0;  // Increment score
-            }
-        }
-    }
-}
+
 bool CheckCollisionWithAnyGhost(int playerX, int playerY, Ghost ghosts[], int numGhosts) {
     Rectangle playerRect = {playerX, playerY, 25, 25};
     for (int i = 0; i < numGhosts; i++) {
@@ -291,7 +274,7 @@ void MoveGhosts(Ghost ghosts[], int numGhosts) {
 
 int main(void) {
     const char wl[] = "Crazy Candy Something";
-    const char s[] = "Press any key to start";
+    const char st[] = "Press any key to start";
     const char t[] = "Game over!";
     const char st1[] = "You lost all your candies.";
     const char sm[] = "Press any key to exit";
@@ -303,7 +286,7 @@ int main(void) {
         BeginDrawing();
             ClearBackground(BLUE);  // Set a background color for the start screen
             DrawText(wl, (w-MeasureText(wl, 50))/2, h/2-100, 50, WHITE);
-            DrawText(s, (w-MeasureText(s, 30))/2, h/2, 30, WHITE);
+            DrawText(st, (w-MeasureText(st, 30))/2, h/2, 30, WHITE);
         EndDrawing();
     }
 
@@ -313,7 +296,11 @@ int main(void) {
   EndDrawing();
     
     Rectangle sourceRec = { 0, 0, 50, 50 };
-    Texture2D sprite = LoadTexture("./Finals/Girl_Final.png");
+    Texture2D sprites[] = {
+        LoadTexture("./Finals/Gangster_Final.png"),
+        LoadTexture("./Finals/Girl_Final.png"),
+        LoadTexture("./Finals/Trader_Final.png")
+    };
     Texture2D wallTexture = LoadTexture("./wall/sprite.png");
     Texture2D pumpkinTexture = LoadTexture("./wall/pumpkin.png");
     Texture2D candyTexture = LoadTexture("./wall/candy.png");
@@ -361,12 +348,11 @@ int main(void) {
 
         // Check collisions with pumpkins
         CheckCollisionWithPumpkins(x, y, &candies);
-        CheckCollisionWithBadPumpkins(x, y, &candies);
         MoveGhosts(ghosts, NUM_GHOSTS);
 
 
         // Check if player collides with the ghost
-        if (CheckCollisionWithAnyGhost(x, y, ghosts, NUM_GHOSTS)) {
+        if (false && CheckCollisionWithAnyGhost(x, y, ghosts, NUM_GHOSTS)) {
             x = 450;
             y = 450;
             candies--;
@@ -393,46 +379,35 @@ int main(void) {
                 DrawTexture(wallTexture, walls[i].x, walls[i].y, WHITE);
             }
 
-            for (int i = 0; i < sizeof(pumpkins1) / sizeof(Pumpkin1); i++) {
-    if (pumpkins1[i].isVisible) {  
-        int newWidth = pumpkinTexture.width * 2; 
-        int newHeight = pumpkinTexture.height * 2; 
-        // Draw the pumpkin with the new size
-        DrawTexturePro(pumpkinTexture, 
-            (Rectangle){0, 0, pumpkinTexture.width, pumpkinTexture.height}, 
-            (Rectangle){pumpkins1[i].x, pumpkins1[i].y, newWidth, newHeight}, 
-            (Vector2){0, 0}, 
-            0, WHITE);
-    }
-}
-
-            for (int i = 0; i < sizeof(pumpkins2) / sizeof(Pumpkin2); i++) {
-    if (pumpkins2[i].isVisible) {  
-        int newWidth = pumpkinTexture.width * 2; 
-        int newHeight = pumpkinTexture.height * 2; 
-
-     
-        DrawTexturePro(pumpkinTexture, 
-            (Rectangle){0, 0, pumpkinTexture.width, pumpkinTexture.height}, 
-            (Rectangle){pumpkins2[i].x, pumpkins2[i].y, newWidth, newHeight}, 
-            (Vector2){0, 0}, 
-            0, WHITE);
-    }
-}
+            for (int i = 0; i < NUM_PUMPKINS; i++) {
+                if (pumpkins[i].isVisible) {  
+                    int newWidth = pumpkinTexture.width * 2; 
+                    int newHeight = pumpkinTexture.height * 2; 
+                    // Draw the pumpkin with the new size
+                    DrawTexturePro(pumpkinTexture, 
+                        (Rectangle){0, 0, pumpkinTexture.width, pumpkinTexture.height}, 
+                        (Rectangle){pumpkins[i].x, pumpkins[i].y, newWidth, newHeight}, 
+                        (Vector2){0, 0}, 
+                        0, WHITE);
+                    char buf[3];
+                    snprintf(buf, 3, "%.2d", i+1);
+                    DrawText(buf, pumpkins[i].x - 5, pumpkins[i].y, 20, WHITE);
+                }
+            }
 
             for (int i = 0; i < NUM_GHOSTS; i++) {
                 DrawTexture(ghostTexture, ghosts[i].x, ghosts[i].y, WHITE);
             }
 
             // Draw player sprite
-            DrawTextureRec(sprite, sourceRec, (Vector2){ x, y }, WHITE);
+            DrawTextureRec(sprites[id%3], sourceRec, (Vector2){ x, y }, WHITE);
 
 
             // Draw candy score
           draw_candies(candyTexture, candies);
 
             // Draw other players
-          draw_clients(sprite, sourceRec);
+          draw_clients(sprites, sourceRec);
             //Draw ghost
             
         EndDrawing();
@@ -440,7 +415,9 @@ int main(void) {
 
     close(sockfd);
 end:
-    UnloadTexture(sprite);
+    UnloadTexture(sprites[0]);
+    UnloadTexture(sprites[1]);
+    UnloadTexture(sprites[2]);
     UnloadTexture(wallTexture);
     UnloadTexture(pumpkinTexture);  // Unload pumpkin texture
     CloseWindow();
