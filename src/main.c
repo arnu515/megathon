@@ -16,51 +16,6 @@ char s[INET6_ADDRSTRLEN];
     #define HOST "127.0.0.1"
 #endif
 
-bool has_lost_game = false;
-
-void listen_for_data(int socket) {
-  char buffer[MAXDATASIZE];
-  ssize_t bytes_received;
-  // Receive data from the server in a non-blocking way
-  fd_set read_fds;
-  FD_ZERO(&read_fds);
-  FD_SET(socket, &read_fds);
-
-  struct timeval timeout;
-  timeout.tv_sec = 0;
-  timeout.tv_usec = 100000; // 100 ms
-
-  if (select(socket + 1, &read_fds, NULL, NULL, &timeout) > 0) {
-    if (FD_ISSET(socket, &read_fds)) {
-      bytes_received = receive_data(socket, buffer, MSG_DONTWAIT);
-      if (bytes_received > 0) {
-        // Print the received data to the console
-        buffer[bytes_received] = '\0';
-        if (strncmp(buffer, "join_", 5) == 0) {
-          int nid, x, y;
-          sscanf(buffer, "join_%d-(%d,%d)", &nid, &x, &y);
-          add_client(nid, x, y);
-        } else if (strncmp(buffer, "leave_", 5) == 0) {
-          int nid, x, y;
-          sscanf(buffer, "leave_%d", &nid);
-          remove_client(nid);
-        } else if (strncmp(buffer, "pos_", 4) == 0) {
-          int nid, x, y;
-          sscanf(buffer, "pos_%d-(%d,%d)", &nid, &x, &y);
-          update_client(nid, x, y);
-        } else if (strncmp(buffer, "lose", 4) == 0) {
-          has_lost_game = true;
-        }
-        printf("Received: %s\n", buffer);
-      }
-      else if (bytes_received == 0)  // Connection closed by the server
-        TraceLog(LOG_INFO, "Connection closed by the server");
-      else // Error while receiving data
-        TraceLog(LOG_ERROR, "Error while receiving data: %d", errno);
-    }
-  }
-}
-
 #define CANDY_X 20
 #define CANDY_Y 20
 #define CANDY_WIDTH 120
@@ -153,7 +108,7 @@ Wall walls[] = {
 
     //RIGHT
     {650, 450}, {700, 450}, //{700, 350}, {700, 400}, {700, 550}, {700, 500},
-    {748, 290}, {748, 340}, {748, 390}, {748, 440}, {748, 490}, {748, 540}, {748, 590}, {800, 450},
+    {740, 290}, {740, 340}, {740, 390}, {740, 440}, {740, 490}, {740, 540}, {740, 590}, {790, 450},
 
     //LEFT
     {50, 450}, {100, 450}, {100, 350}, {100, 300}, {100, 400}, {100, 600}, {100, 550}, {100, 500},
@@ -167,29 +122,91 @@ Wall walls[] = {
 
 Pumpkin pumpkins[] = {
     {150, 50, 0, true}, //1
-    {350, 50, 1, true},//2
-    {550, 50, 1, true},//3
+    {350, 50, 0, true},//2
+    {550, 50, 0, true},//3
     {750, 50, 0, true},//4
-    {50, 150, 1, true},//5
-    {50, 350, 1, true},//6
-    {50, 550, 1, true},//7
-    {50, 750, 1, true},//8
+    {50, 150, 0, true},//5
+    {50, 350, 0, true},//6
+    {50, 550, 0, true},//7
+    {50, 750, 0, true},//8
     {150, 800, 0, true},//9
-    {350, 800, 1, true},//10
-    {550, 800, 1, true},//11
-    {800, 740, 1, true},//12
-    {800, 150, 1, true},//13
-    {800, 350, 1, true},//14
+    {350, 800, 0, true},//10
+    {550, 800, 0, true},//11
+    {800, 740, 0, true},//12
+    {800, 150, 0, true},//13
+    {800, 350, 0, true},//14
     {800, 550, 1, true},//15
     {715, 800, 0, true},//16
 };
+
 const size_t NUM_PUMPKINS = sizeof(pumpkins) / sizeof(Pumpkin);
+
+bool are_all_good_pumpkins_gone() {
+    bool res = true;
+    for (int i = 0; i < NUM_PUMPKINS; i++) {
+        if (pumpkins[i].delta > 0 && pumpkins[i].isVisible) res = false;
+    }
+    return res;
+}
+ 
+bool has_lost_game = false;
+int place = -1;
+
+void listen_for_data(int socket) {
+  char buffer[MAXDATASIZE];
+  ssize_t bytes_received;
+  // Receive data from the server in a non-blocking way
+  fd_set read_fds;
+  FD_ZERO(&read_fds);
+  FD_SET(socket, &read_fds);
+
+  struct timeval timeout;
+  timeout.tv_sec = 0;
+  timeout.tv_usec = 100000; // 100 ms
+
+  if (select(socket + 1, &read_fds, NULL, NULL, &timeout) > 0) {
+    if (FD_ISSET(socket, &read_fds)) {
+      bytes_received = receive_data(socket, buffer, MSG_DONTWAIT);
+      if (bytes_received > 0) {
+        // Print the received data to the console
+        buffer[bytes_received] = '\0';
+        if (strncmp(buffer, "join_", 5) == 0) {
+          int nid, x, y;
+          sscanf(buffer, "join_%d-(%d,%d)", &nid, &x, &y);
+          add_client(nid, x, y);
+        } else if (strncmp(buffer, "leave_", 5) == 0) {
+          int nid, x, y;
+          sscanf(buffer, "leave_%d", &nid);
+          remove_client(nid);
+        } else if (strncmp(buffer, "pos_", 4) == 0) {
+          int nid, x, y;
+          sscanf(buffer, "pos_%d-(%d,%d)", &nid, &x, &y);
+          update_client(nid, x, y);
+        } else if (strncmp(buffer, "lose", 4) == 0) {
+          has_lost_game = true;
+        } else if (strncmp(buffer, "pumpkin-", 8) == 0) {
+          int idx;
+          sscanf(buffer, "pumpkin-(%d)", &idx);
+          if (idx < NUM_PUMPKINS && idx >= 0) pumpkins[idx].isVisible = false;
+          if (are_all_good_pumpkins_gone()) send_data(sockfd, "end\n", 3);
+        } else if (strncmp(buffer, "place-", 6) == 0) {
+          sscanf(buffer, "place-(%d)", &place);
+        }
+        printf("Received: %s\n", buffer);
+      }
+      else if (bytes_received == 0)  // Connection closed by the server
+        TraceLog(LOG_INFO, "Connection closed by the server");
+      else // Error while receiving data
+        TraceLog(LOG_ERROR, "Error while receiving data: %d", errno);
+    }
+  }
+}
 
 // Function to check collision between player and walls
 bool CheckCollisionWithWalls(int x, int y) {
     Rectangle playerRect = {x, y, 25, 25};  // Player's bounding box
     for (int i = 0; i < sizeof(walls) / sizeof(Wall); i++) {
-        Rectangle wallRect = {walls[i].x, walls[i].y, WALL_WIDTH, WALL_HEIGHT};
+        Rectangle wallRect = {walls[i].x, walls[i].y, WALL_WIDTH-10, WALL_HEIGHT-10};
         if (CheckCollisionRecs(playerRect, wallRect)) {
             return true;  // Collision detected
         }
@@ -208,7 +225,9 @@ void CheckCollisionWithPumpkins(int x, int y, int *score) {
                 int d = pumpkins[i].delta;
                 if (d == 0) *score = 0;
                 else *score += d;
+                send_pumpkin(sockfd, i);
                 send_candies(sockfd, *score);
+                if (are_all_good_pumpkins_gone()) send_data(sockfd, "end\n", 3);
             }
         }
     }
@@ -273,7 +292,7 @@ void MoveGhosts(Ghost ghosts[], int numGhosts) {
 
 
 int main(void) {
-    const char wl[] = "Crazy Candy Something";
+    const char wl[] = "Crazy Candy Chaos";
     const char st[] = "Press any key to start";
     const char t[] = "Game over!";
     const char st1[] = "You lost all your candies.";
@@ -285,8 +304,8 @@ int main(void) {
     while (GetKeyPressed() == 0) {
         BeginDrawing();
             ClearBackground(BLUE);  // Set a background color for the start screen
-            DrawText(wl, (w-MeasureText(wl, 50))/2, h/2-100, 50, WHITE);
-            DrawText(st, (w-MeasureText(st, 30))/2, h/2, 30, WHITE);
+            DrawText(wl, (w-MeasureText(wl, 50))/2, h/2-200, 50, WHITE);
+            DrawText(st, (w-MeasureText(st, 20))/2, h/2+100, 20, WHITE);
         EndDrawing();
     }
 
@@ -326,6 +345,23 @@ int main(void) {
                     ClearBackground(BLACK);
                     DrawText(t, (w-MeasureText(t, 50))/2, h/2-100, 50, RED);
                     DrawText(st1, (w-MeasureText(st1, 30))/2, h/2, 30, RED);
+                    DrawText(sm, (w-MeasureText(st1, 20))/2, 800, 20, RED);
+                EndDrawing();
+            }
+            goto end;
+        }
+        if (place != -1) {
+            close(sockfd);
+            char x[20];
+            if (place <= 3) snprintf(x, 20, "%s Place!", place == 1 ? "1st" : place == 2 ? "2nd" : "3rd");
+            else snprintf(x, 20, "%dth Place!", place);
+            char can[32];
+            snprintf(can, 32, candies == 1 ? "You collected %d candy." : "You collected %d candies.", candies);
+            while (GetKeyPressed() == 0) {
+                BeginDrawing();
+                    ClearBackground(BLACK);
+                    DrawText(x, (w-MeasureText(x, 50))/2, h/2-100, 50, YELLOW);
+                    DrawText(can, (w-MeasureText(can, 30))/2, h/2, 30, YELLOW);
                     DrawText(sm, (w-MeasureText(st1, 20))/2, 800, 20, RED);
                 EndDrawing();
             }

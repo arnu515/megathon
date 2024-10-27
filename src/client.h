@@ -165,7 +165,7 @@ void fetch_and_set_starting_candies(int sockfd, int *candies) {
 }
 
 void get_clients(int sockfd, void (*on_new)(int, int, int)) {
-  send_data(sockfd, "get", 3);
+  send_data(sockfd, "get\n", 3);
   char buf[MAXDATASIZE] = {0};
   if (receive_data(sockfd, buf, 0) < 0) {
     perror("receive");
@@ -190,19 +190,19 @@ void get_clients(int sockfd, void (*on_new)(int, int, int)) {
 
 void send_pos(int sockfd, int x, int y) {
   char buf[32] = {0};
-  int n = snprintf(buf, 31, "pos-(%d,%d)", x, y);
+  int n = snprintf(buf, 31, "pos-(%d,%d)\n", x, y);
   send_data(sockfd, buf, n);
 }
 
 void send_pumpkin(int sockfd, int idx) {
   char buf[32] = {0};
-  int n = snprintf(buf, 31, "pumpkin-(%d)", idx);
+  int n = snprintf(buf, 31, "pumpkin-(%d)\n", idx);
   send_data(sockfd, buf, n);
 }
 
 void send_candies(int sockfd, int candies) {
   char buf[32] = {0};
-  int n = snprintf(buf, 31, "candies-(%d)", candies);
+  int n = snprintf(buf, 31, "candies-(%d)\n", candies);
   send_data(sockfd, buf, n);
 }
 

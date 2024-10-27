@@ -115,6 +115,44 @@ void send_all_coords(int socket) {
     pthread_mutex_unlock(&client_mutex);
 }
 
+
+char receive_buf[MAXDATASIZE] = {0};
+
+ssize_t receive_data(int sockfd, char *buf, size_t size) {
+  ssize_t bytes_received;
+  
+  if (*receive_buf != '\0') { // there's data in the buffer
+    char *newline_pos = strchr(receive_buf, '\n');
+    printf("recccc: %s %p\n", receive_buf, newline_pos);
+    if (newline_pos != NULL) {
+      *newline_pos = '\0';
+      strcpy(buf, receive_buf);
+      memmove(receive_buf, newline_pos + 1, strlen(newline_pos + 1) + 1);
+      printf("check recv buf %ld: %s\n", strlen(buf), buf);
+      return strlen(buf);
+    }
+  }
+
+  memset(receive_buf, 0, MAXDATASIZE);
+  
+  bytes_received = read(sockfd, buf, size);
+  if (bytes_received == -1) {
+    perror("recv");
+    return -1;
+  }
+  
+  buf[bytes_received] = '\0';
+  
+  char *newline_pos = strchr(buf, '\n');
+  if (newline_pos != NULL) {
+    *newline_pos = '\0';
+    memmove(receive_buf, newline_pos + 1, strlen(newline_pos + 1) + 1);
+    printf("recv buf: %s\n", buf);
+  }
+  printf("client: received '%s'\n", buf);
+  return bytes_received;
+}
+
 void *handle_client(void *arg) {
     int new_socket = *(int *)arg;
     char buffer[BUFFER_SIZE] = {0};
@@ -122,7 +160,7 @@ void *handle_client(void *arg) {
     client_join_leave(true, new_socket);
 
     while (1) {
-        int valread = read(new_socket, buffer, BUFFER_SIZE);
+        int valread = receive_data(new_socket, buffer, BUFFER_SIZE);
         if (valread <= 0) {
             perror("read");
             break; // Exit the loop on read error
