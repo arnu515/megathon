@@ -51,8 +51,8 @@ void free_clients(Client *curr) {
 }
 
 // Assuming BeginDrawing.
-void draw_clients() {
+void draw_clients(Texture2D sprite, Rectangle source) {
   for (Client *curr = root.next; curr != NULL; curr = curr->next) {
-    DrawRectangle(curr->posX, curr->posY, 50, 50, BLUE);
+    DrawTextureRec(sprite, source, (Vector2){ curr->posX, curr->posY }, WHITE);
   }
 }
