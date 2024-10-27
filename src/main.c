@@ -87,8 +87,10 @@ typedef struct Ghost {
 Ghost ghosts[NUM_GHOSTS] = {
     {150, 150, 150, 150, 450, 150, 3},
     {200, 150, 200, 150, 400, 150, 3},
-    {150, 200, 150, 200, 150, 400, 3}, {700, 150, 700, 150, 500, 150, 3},
-    {150, 650, 150, 650, 150, 500, 3},
+    {150, 200, 150, 200, 150, 400, 3},
+    {700, 150, 700, 150, 500, 150, 3},
+    {150, 650, 150, 650, 150, 450, 3},
+    //{150, 650, 150, 650, 150, 450, 3},
 };
 
 
@@ -203,18 +205,31 @@ bool CheckCollisionWithAnyGhost(int playerX, int playerY, Ghost ghosts[], int nu
 
 // Function to move the ghost between its predefined coordinates
 // Function to move the ghosts between predefined coordinates
+// Function to move the ghosts between predefined coordinates
+// Function to move the ghosts between predefined coordinates
 void MoveGhosts(Ghost ghosts[], int numGhosts) {
     for (int i = 0; i < numGhosts; i++) {
         // Move along x-axis
-        if (ghosts[i].x < ghosts[i].targetX) ghosts[i].x += ghosts[i].speed;
-        else if (ghosts[i].x > ghosts[i].targetX) ghosts[i].x -= ghosts[i].speed;
+        if (ghosts[i].x < ghosts[i].targetX) {
+            ghosts[i].x += ghosts[i].speed;
+            if (ghosts[i].x > ghosts[i].targetX) ghosts[i].x = ghosts[i].targetX;  // Clamp position
+        } else if (ghosts[i].x > ghosts[i].targetX) {
+            ghosts[i].x -= ghosts[i].speed;
+            if (ghosts[i].x < ghosts[i].targetX) ghosts[i].x = ghosts[i].targetX;  // Clamp position
+        }
 
         // Move along y-axis
-        if (ghosts[i].y < ghosts[i].targetY) ghosts[i].y += ghosts[i].speed;
-        else if (ghosts[i].y > ghosts[i].targetY) ghosts[i].y -= ghosts[i].speed;
+        if (ghosts[i].y < ghosts[i].targetY) {
+            ghosts[i].y += ghosts[i].speed;
+            if (ghosts[i].y > ghosts[i].targetY) ghosts[i].y = ghosts[i].targetY;  // Clamp position
+        } else if (ghosts[i].y > ghosts[i].targetY) {
+            ghosts[i].y -= ghosts[i].speed;
+            if (ghosts[i].y < ghosts[i].targetY) ghosts[i].y = ghosts[i].targetY;  // Clamp position
+        }
 
         // Check if the ghost has reached its target position
-        if (ghosts[i].x == ghosts[i].targetX && ghosts[i].y == ghosts[i].targetY) {
+        if (abs(ghosts[i].x - ghosts[i].targetX) < ghosts[i].speed &&
+            abs(ghosts[i].y - ghosts[i].targetY) < ghosts[i].speed) {
             // Swap the target and starting positions
             int tempX = ghosts[i].targetX;
             int tempY = ghosts[i].targetY;
@@ -222,6 +237,9 @@ void MoveGhosts(Ghost ghosts[], int numGhosts) {
             ghosts[i].targetY = ghosts[i].startY;
             ghosts[i].startX = tempX;
             ghosts[i].startY = tempY;
+
+            // Debug statement to confirm the swap
+            TraceLog(LOG_INFO, "Ghost at (%d, %d) swapped to (%d, %d)", ghosts[i].x, ghosts[i].y, ghosts[i].targetX, ghosts[i].targetY);
         }
     }
 }
@@ -230,19 +248,22 @@ void MoveGhosts(Ghost ghosts[], int numGhosts) {
 
 
 
+
+
+
 int main(void) {
     InitWindow(900, 900, "YAAAS");
   BeginDrawing();
-    ClearBackground((Color){0, 0, 0, 0});
-    DrawText("connecting...", 456, 456, 20, RAYWHITE);
+    ClearBackground(GRAY);
+    DrawText("connecting...", 456, 456, 20, RED);
   EndDrawing();
     
     Rectangle sourceRec = { 0, 0, 50, 50 };
     Texture2D sprite = LoadTexture("./Finals/Girl_Final.png");
     Texture2D wallTexture = LoadTexture("./wall/sprite.png");
-    Texture2D pumpkinTexture = LoadTexture("./wall/candy.png");
+    Texture2D pumpkinTexture = LoadTexture("./wall/pumpkin.png");
     Texture2D candyTexture = LoadTexture("./wall/candy.png");
-    Texture2D ghostTexture = LoadTexture("./Finals/Trader_Final.png");
+    Texture2D ghostTexture = LoadTexture("./wall/ghost.png");
 
   int id, x, y, candies;
 
@@ -289,7 +310,7 @@ int main(void) {
         if (x != prevX || y != prevY) send_pos(sockfd, x, y);
 
         BeginDrawing();
-            ClearBackground((Color){0, 0, 0, 0});
+            ClearBackground(GRAY);
             
             // Draw the wall texture as the border
             for (int i = 0; i < GetScreenWidth() / wallTexture.width; i++) {
@@ -318,12 +339,12 @@ int main(void) {
             // Draw player sprite
             DrawTextureRec(sprite, sourceRec, (Vector2){ x, y }, WHITE);
 
+
             // Draw candy score
           draw_candies(candyTexture, candies);
 
             // Draw other players
           draw_clients(sprite, sourceRec);
-
             //Draw ghost
             
         EndDrawing();
