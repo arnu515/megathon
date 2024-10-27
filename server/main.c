@@ -31,11 +31,14 @@ void broadcast_pos(int sender_socket, char data[]) {
     int x, y;
     sscanf(data, "pos-(%d,%d)", &x, &y);
     char buf[MAXDATASIZE];
-    int n = snprintf(buf, MAXDATASIZE-1, "pos_%d-(%d,%d)", sender_socket, x, y);
+    int n = snprintf(buf, MAXDATASIZE-1, "pos_%d-(%d,%d)\n", sender_socket, x, y);
     pthread_mutex_lock(&client_mutex);
     for (int i = 0; i < client_count; i++) {
         if (client_sockets[i].socket != sender_socket) {
             send(client_sockets[i].socket, buf, n, 0);
+        } else {
+            client_sockets[i].posX = x;
+            client_sockets[i].posY = y;
         }
     }
     pthread_mutex_unlock(&client_mutex);
@@ -43,7 +46,7 @@ void broadcast_pos(int sender_socket, char data[]) {
 
 void client_join_leave(bool is_join, int sender_socket) {
     char buf[20];
-    int n = is_join ? snprintf(buf, sizeof(buf), "join_%d-(%d,%d)", sender_socket, START_POS, START_POS) : snprintf(buf, sizeof(buf), "leave_%d", sender_socket);
+    int n = is_join ? snprintf(buf, sizeof(buf), "join_%d-(%d,%d)\n", sender_socket, START_POS, START_POS) : snprintf(buf, sizeof(buf), "leave_%d\n", sender_socket);
     pthread_mutex_lock(&client_mutex);
     for (int i = 0; i < client_count; i++) {
         if (client_sockets[i].socket != sender_socket) {
@@ -58,6 +61,7 @@ void send_all_coords(int socket) {
     pthread_mutex_lock(&client_mutex);
     for (int i = 0; i < client_count; i++) {
         if (client_sockets[i].socket != socket) {
+            printf("Sending client %d (%d,%d) to %d\n", client_sockets[i].socket, client_sockets[i].posX, client_sockets[i].posY, socket);
             write_client_posn(socket, client_sockets[i].socket, client_sockets[i].posX, client_sockets[i].posY);
         }
     }
