@@ -130,7 +130,7 @@ typedef struct Pumpkin2 {
 Wall walls[] = {
 
     // Top border wall sections
-    {0, 0}, {50, 0}, {100, 0}, {150, 0}, {200, 0}, {250, 0}, {300, 0}, {350, 0}, {400, 0}, {450, 0}, {500, 0}, {550, 0}, {600, 0}, {650, 0}, {700, 0}, {750, 0}, {800, 0}, {850, 0}, {900, 0},
+    {0, 0}, {50, 0}, {100, 0}, {150, 0}, {200, 0}, {250, 0}, {300, 0}, {350, 0}, {400, 0}, {450, 0}, {500, 0}, {550, 0}, {600, 0}, {650, 0}, {700, 0}, {750, 0}, {800, 0}, {850, 0}, 
 
     // Left border wall sections
     {0, 50}, {0, 100}, {0, 150}, {0, 200}, {0, 250}, {0, 300}, {0, 350}, {0, 400}, {0, 450}, {0, 500}, {0, 550}, {0, 600}, {0, 650}, {0, 700}, {0, 750}, {0, 800}, {0, 850},
@@ -139,7 +139,7 @@ Wall walls[] = {
     {900, 50}, {900, 100}, {900, 150}, {900, 200}, {900, 250}, {900, 300}, {900, 350}, {900, 400}, {900, 450}, {900, 500}, {900, 550}, {900, 600}, {900, 650}, {900, 700}, {900, 750}, {900, 800}, {900, 850},
 
     // Bottom border wall sections
-    {0, 900}, {50, 900}, {100, 900}, {150, 900}, {200, 900}, {250, 900}, {300, 900}, {350, 900}, {400, 900}, {450, 900}, {500, 900}, {550, 900}, {600, 900}, {650, 900}, {700, 900}, {750, 900}, {800, 900}, {850, 900}, {900, 900},
+    {0, 900}, {100, 900}, {150, 900}, {200, 900}, {250, 900}, {300, 900}, {350, 900}, {400, 900}, {450, 900}, {500, 900}, {550, 900}, {600, 900}, {650, 900}, {700, 900}, {750, 900}, {800, 900}, {850, 900}, 
     {450, 0}, {450, 50}, {450, 100},
     
     {450, 150}, {450, 200}, {450, 250}, //top wala 
@@ -157,7 +157,7 @@ Wall walls[] = {
 
     //RIGHT
     {650, 450}, {700, 450}, //{700, 350}, {700, 400}, {700, 550}, {700, 500},
-    {736, 290}, {736, 340}, {736, 390}, {736, 440}, {736, 490}, {736, 540}, {736, 590}, {800, 450},
+    {748, 290}, {748, 340}, {748, 390}, {748, 440}, {748, 490}, {748, 540}, {748, 590}, {800, 450},
 
     //LEFT
     {50, 450}, {100, 450}, {100, 350}, {100, 300}, {100, 400}, {100, 600}, {100, 550}, {100, 500},
@@ -291,6 +291,17 @@ void MoveGhosts(Ghost ghosts[], int numGhosts) {
 
 int main(void) {
     InitWindow(900, 900, "YAAAS");
+    while (!WindowShouldClose()) {
+        BeginDrawing();
+            ClearBackground(BLUE);  // Set a background color for the start screen
+            DrawText("Welcome to the Game!", 300, 300, 40, WHITE);
+            DrawText("Press enter to start", 300, 400, 20, WHITE);
+        EndDrawing();
+
+        if (IsKeyPressed(KEY_ENTER)) { // Wait for any key press
+            break; // Exit the start screen loop
+        }
+    }
   BeginDrawing();
     ClearBackground(GRAY);
     DrawText("connecting...", 456, 456, 20, RED);
@@ -355,8 +366,8 @@ int main(void) {
 
         // Check if player collides with the ghost
         if (CheckCollisionWithAnyGhost(x, y, ghosts, NUM_GHOSTS)) {
-            x = 456;
-            y = 456;
+            x = 450;
+            y = 450;
             candies--;
             send_candies(sockfd, candies);
         }
@@ -382,11 +393,9 @@ int main(void) {
             }
 
             for (int i = 0; i < sizeof(pumpkins1) / sizeof(Pumpkin1); i++) {
-    if (pumpkins1[i].isVisible) {  // Only draw visible pumpkins
-        // Set new width and height directly to double the original size
-        int newWidth = pumpkinTexture.width * 2; // Double the width
-        int newHeight = pumpkinTexture.height * 2; // Double the height
-
+    if (pumpkins1[i].isVisible) {  
+        int newWidth = pumpkinTexture.width * 2; 
+        int newHeight = pumpkinTexture.height * 2; 
         // Draw the pumpkin with the new size
         DrawTexturePro(pumpkinTexture, 
             (Rectangle){0, 0, pumpkinTexture.width, pumpkinTexture.height}, 
@@ -397,12 +406,11 @@ int main(void) {
 }
 
             for (int i = 0; i < sizeof(pumpkins2) / sizeof(Pumpkin2); i++) {
-    if (pumpkins2[i].isVisible) {  // Only draw visible pumpkins
-        // Set new width and height directly to double the original size
-        int newWidth = pumpkinTexture.width * 2; // Double the width
-        int newHeight = pumpkinTexture.height * 2; // Double the height
+    if (pumpkins2[i].isVisible) {  
+        int newWidth = pumpkinTexture.width * 2; 
+        int newHeight = pumpkinTexture.height * 2; 
 
-        // Draw the pumpkin with the new size
+     
         DrawTexturePro(pumpkinTexture, 
             (Rectangle){0, 0, pumpkinTexture.width, pumpkinTexture.height}, 
             (Rectangle){pumpkins2[i].x, pumpkins2[i].y, newWidth, newHeight}, 
