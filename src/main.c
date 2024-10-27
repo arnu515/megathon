@@ -5,6 +5,32 @@
 #define WALL_WIDTH 50
 #define WALL_HEIGHT 50
 
+#define GHOST_WIDTH 25
+#define GHOST_HEIGHT 25
+
+#define NUM_GHOSTS 5  // Number of ghosts
+
+
+typedef struct Ghost {
+    int x;
+    int y;
+    int startX;    // Starting X position
+    int startY;    // Starting Y position
+    int targetX;   // Target X position
+    int targetY;   // Target Y position
+    int speed;
+} Ghost;
+
+
+Ghost ghosts[NUM_GHOSTS] = {
+    {150, 150, 150, 150, 450, 150, 3},
+    {200, 150, 200, 150, 400, 150, 3},
+    {150, 200, 150, 200, 150, 400, 3},
+    {700, 150, 700, 150, 500, 150, 3},
+    {150, 650, 150, 650, 150, 500, 3},
+};
+
+
 // Struct to hold wall positions
 typedef struct Wall {
     int x;
@@ -61,10 +87,22 @@ Wall walls[] = {
 };
 
 Pumpkin pumpkins[] = {
-    {100, 50, true},  // Set initial visibility to true
-    {400, 50, true},
-    {500, 50, true},
+    {150, 50, true},  // Set initial visibility to true
+    {350, 50, true},
+    {550, 50, true},
     {750, 50, true},
+    {50, 150, true},
+    {50, 350, true},
+    {50, 550, true},
+    {50, 750, true},
+    {150, 800, true},
+    {350, 800, true},
+    {550, 800, true},
+    {750, 800, true},
+    {775, 150, true},
+    {775, 350, true},
+    {775, 550, true},
+    {775, 750, true},
 };
 
 // Function to check collision between player and walls
@@ -92,6 +130,44 @@ void CheckCollisionWithPumpkins(int x, int y, int *score) {
         }
     }
 }
+bool CheckCollisionWithAnyGhost(int playerX, int playerY, Ghost ghosts[], int numGhosts) {
+    Rectangle playerRect = {playerX, playerY, 25, 25};
+    for (int i = 0; i < numGhosts; i++) {
+        Rectangle ghostRect = {ghosts[i].x, ghosts[i].y, GHOST_WIDTH, GHOST_HEIGHT};
+        if (CheckCollisionRecs(playerRect, ghostRect)) return true;
+    }
+    return false;
+}
+
+
+// Function to move the ghost between its predefined coordinates
+// Function to move the ghosts between predefined coordinates
+void MoveGhosts(Ghost ghosts[], int numGhosts) {
+    for (int i = 0; i < numGhosts; i++) {
+        // Move along x-axis
+        if (ghosts[i].x < ghosts[i].targetX) ghosts[i].x += ghosts[i].speed;
+        else if (ghosts[i].x > ghosts[i].targetX) ghosts[i].x -= ghosts[i].speed;
+
+        // Move along y-axis
+        if (ghosts[i].y < ghosts[i].targetY) ghosts[i].y += ghosts[i].speed;
+        else if (ghosts[i].y > ghosts[i].targetY) ghosts[i].y -= ghosts[i].speed;
+
+        // Check if the ghost has reached its target position
+        if (ghosts[i].x == ghosts[i].targetX && ghosts[i].y == ghosts[i].targetY) {
+            // Swap the target and starting positions
+            int tempX = ghosts[i].targetX;
+            int tempY = ghosts[i].targetY;
+            ghosts[i].targetX = ghosts[i].startX;
+            ghosts[i].targetY = ghosts[i].startY;
+            ghosts[i].startX = tempX;
+            ghosts[i].startY = tempY;
+        }
+    }
+}
+
+
+
+
 
 int main(void) {
     InitWindow(900, 900, "YAAAS");
@@ -99,7 +175,8 @@ int main(void) {
     Rectangle sourceRec = { 0, 0, 50, 50 };
     Texture2D sprite = LoadTexture("./Finals/Girl_Final.png");
     Texture2D wallTexture = LoadTexture("./wall/sprite.png");
-    Texture2D pumpkinTexture = LoadTexture("./Finals/Yogi_Final.png");
+    Texture2D pumpkinTexture = LoadTexture("./wall/candy.png");
+    Texture2D ghostTexture = LoadTexture("./Finals/Trader_Final.png");
 
     int x = 456;
     int y = 456;
@@ -124,6 +201,19 @@ int main(void) {
 
         // Check collisions with pumpkins
         CheckCollisionWithPumpkins(x, y, &score);
+        MoveGhosts(ghosts, NUM_GHOSTS);
+
+
+        // Check if player collides with the ghost
+        if (CheckCollisionWithAnyGhost(x, y, ghosts, NUM_GHOSTS)) {
+    score = (score > 0) ? score - 1 : 0;
+    if (score == 0) {
+        DrawText("Game Over!", GetScreenWidth() / 2 - 50, GetScreenHeight() / 2, 40, RED);
+        EndDrawing();
+        break;
+    }
+}
+
 
         BeginDrawing();
             ClearBackground((Color){0, 0, 0, 0});
@@ -148,13 +238,17 @@ int main(void) {
                     DrawTexture(pumpkinTexture, pumpkins[i].x, pumpkins[i].y, WHITE);
                 }
             }
+            for (int i = 0; i < NUM_GHOSTS; i++) {
+                DrawTexture(ghostTexture, ghosts[i].x, ghosts[i].y, WHITE);
+            }
 
             // Draw player sprite
             DrawTextureRec(sprite, sourceRec, (Vector2){ x, y }, WHITE);
 
             // Display the score
             DrawText(TextFormat("Score: %d", score), 10, 10, 20, WHITE);
-
+            //Draw ghost
+            
         EndDrawing();
     }
 
