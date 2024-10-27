@@ -19,7 +19,7 @@
 void *get_in_addr(struct sockaddr *sa);
 int setup_addrinfo(char *hostname, struct addrinfo **servinfo);
 int setup_conn(struct addrinfo *servinfo, int *sockfd, char *s);
-ssize_t receive_data(int sockfd, char *buf);
+ssize_t receive_data(int sockfd, char *buf, int flags);
 ssize_t send_data(int, const char *, size_t);
 void connect_to_server(char *, struct addrinfo **, int *, char []);
 void fetch_and_set_starting_pos(int, int *, int *, int *);
@@ -77,16 +77,41 @@ int setup_conn(struct addrinfo *servinfo, int *sockfd, char *s)
     return 2;
 }
 
-ssize_t receive_data(int sockfd, char *buf)
-{
-    ssize_t numbytes;
-    if ((numbytes = recv(sockfd, buf, MAXDATASIZE - 1, 0)) == -1) {
-        perror("recv");
-        return -1;
+char receive_buf[MAXDATASIZE] = {0};
+
+ssize_t receive_data(int sockfd, char *buf, int flags) {
+  ssize_t bytes_received;
+  
+  if (*receive_buf != '\0') { // there's data in the buffer
+    char *newline_pos = strchr(receive_buf, '\n');
+    printf("recccc: %s %p\n", receive_buf, newline_pos);
+    if (newline_pos != NULL) {
+      *newline_pos = '\0';
+      strcpy(buf, receive_buf);
+      memmove(receive_buf, newline_pos + 1, strlen(newline_pos + 1) + 1);
+      printf("check recv buf %d: %s\n", strlen(buf), buf);
+      return strlen(buf);
     }
-    buf[numbytes] = '\0';
-    printf("client: received '%s'\n", buf);
-    return numbytes;
+  }
+
+  memset(receive_buf, 0, MAXDATASIZE);
+  
+  bytes_received = recv(sockfd, buf, MAXDATASIZE - 1, flags);
+  if (bytes_received == -1) {
+    perror("recv");
+    return -1;
+  }
+  
+  buf[bytes_received] = '\0';
+  
+  char *newline_pos = strchr(buf, '\n');
+  if (newline_pos != NULL) {
+    *newline_pos = '\0';
+    memmove(receive_buf, newline_pos + 1, strlen(newline_pos + 1) + 1);
+    printf("recv buf: %s\n", buf);
+  }
+  printf("client: received '%s'\n", buf);
+  return bytes_received;
 }
 
 ssize_t send_data(int sockfd, const char *buf, size_t len) {
@@ -115,7 +140,7 @@ void connect_to_server(char *host, struct addrinfo **servinfo, int *sockfd, char
 
 void fetch_and_set_starting_pos(int sockfd, int *id, int *x, int *y) {
   char buf[MAXDATASIZE] = {0};
-  if (receive_data(sockfd, buf) < 0) {
+  if (receive_data(sockfd, buf, 0) < 0) {
     perror("receive");
     TraceLog(LOG_FATAL, "Could not get starting coordinates");
     exit(1);
@@ -126,19 +151,19 @@ void fetch_and_set_starting_pos(int sockfd, int *id, int *x, int *y) {
 
 void fetch_and_set_starting_candies(int sockfd, int *candies) {
   char buf[MAXDATASIZE] = {0};
-  if (receive_data(sockfd, buf) < 0) {
+  if (receive_data(sockfd, buf, 0) < 0) {
     perror("receive");
     TraceLog(LOG_FATAL, "Could not get other clients");
     exit(1);
   }
-  printf("starting with %d candies\n", candies);
   *candies = atoi(buf);
+  TraceLog(LOG_INFO, "Starting with %d candies.", *candies);
 }
 
 void get_clients(int sockfd, void (*on_new)(int, int, int)) {
   send_data(sockfd, "get", 3);
   char buf[MAXDATASIZE] = {0};
-  if (receive_data(sockfd, buf) < 0) {
+  if (receive_data(sockfd, buf, 0) < 0) {
     perror("receive");
     TraceLog(LOG_FATAL, "Could not get other clients");
     exit(1);
@@ -146,14 +171,15 @@ void get_clients(int sockfd, void (*on_new)(int, int, int)) {
   long num = atol(buf);
   TraceLog(LOG_INFO, "%d clients connected\n", num);
   while (num-- > 0) {
-    if (receive_data(sockfd, buf) < 0) {
+    if (receive_data(sockfd, buf, 0) < 0) {
       perror("receive");
       TraceLog(LOG_FATAL, "Could not get other clients");
       exit(1);
     }
+    printf("EEEEEEEEEERecv: %s\n", buf);
     int id, x, y;
     sscanf(buf, "%d-(%d,%d)", &id, &x, &y);
-    printf("Got client: x=%d, y=%d", x, y);
+    printf("Got client %d: x=%d, y=%d\n", id, x, y);
     on_new(id, x, y);
   }
 }
