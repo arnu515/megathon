@@ -12,7 +12,9 @@ struct addrinfo *servinfo;
 int sockfd;
 char s[INET6_ADDRSTRLEN];
 
-#define HOST "127.0.0.1"
+#ifndef HOST
+    #define HOST "127.0.0.1"
+#endif
 
 void listen_for_data(int socket) {
   char buffer[MAXDATASIZE];

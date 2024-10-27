@@ -12,7 +12,9 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
-#define PORT "8080"       // the port client will be connecting to 
+#ifndef PORT
+  #define PORT "8080"       // the port client will be connecting to 
+#endif
 #define MAXDATASIZE 100   // max number of bytes we can get at once 
 
 // Function declarations

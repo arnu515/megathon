@@ -9,7 +9,9 @@
 #include <pthread.h>
 #include "util.c"
 
-#define PORT 8080
+#ifndef PORT
+    #define PORT 8080
+#endif
 #define BUFFER_SIZE 1024
 #define MAX_CLIENTS 10
 #define START_POS 456
