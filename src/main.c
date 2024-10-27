@@ -139,14 +139,14 @@ Pumpkin pumpkins[] = {
     {350, 50, 1, true},//2
     {550, 50, 1, true},//3
     {750, 50, 1, true},//4
-    {50, 150, 1, true},//5
-    {50, 350, 1, true},//6
-    {50, 550, 1, true},//7
-    {50, 750, 1, true},//8
+    {58, 150, 1, true},//5
+    {58, 350, 1, true},//6
+    {58, 550, 1, true},//7
+    {58, 740, 1, true},//8
     {150, 800, 1, true},//9
     {350, 800, 1, true},//10
     {550, 800, 1, true},//11
-    {800, 740, 1, true},//12
+    {800, 730, 1, true},//12
     {800, 150, 1, true},//13
     {800, 350, 1, true},//14
     {800, 550, 1, true},//15
@@ -256,7 +256,7 @@ void listen_for_data(int socket) {
 bool CheckCollisionWithWalls(int x, int y) {
     Rectangle playerRect = {x, y, 25, 25};  // Player's bounding box
     for (int i = 0; i < sizeof(walls) / sizeof(Wall); i++) {
-        Rectangle wallRect = {walls[i].x, walls[i].y, WALL_WIDTH-10, WALL_HEIGHT-10};
+        Rectangle wallRect = {walls[i].x-7, walls[i].y-10, WALL_WIDTH, WALL_HEIGHT};
         if (CheckCollisionRecs(playerRect, wallRect)) {
             return true;  // Collision detected
         }
@@ -287,7 +287,7 @@ bool CheckCollisionWithAnyGhost(int playerX, int playerY, Ghost ghosts[], int nu
     Rectangle playerRect = {playerX, playerY, 25, 25};
     for (int i = 0; i < numGhosts; i++) {
         Rectangle ghostRect = {ghosts[i].x, ghosts[i].y, GHOST_WIDTH, GHOST_HEIGHT};
-        if (CheckCollisionRecs(playerRect, ghostRect)) return true;
+        if (CheckCollisionRecs(playerRect, ghostRect)) return false;
     }
     return false;
 }
@@ -329,7 +329,7 @@ void MoveGhosts(Ghost ghosts[], int numGhosts) {
             ghosts[i].startY = tempY;
 
             // Debug statement to confirm the swap
-            TraceLog(LOG_INFO, "Ghost at (%d, %d) swapped to (%d, %d)", ghosts[i].x, ghosts[i].y, ghosts[i].targetX, ghosts[i].targetY);
+            // TraceLog(LOG_INFO, "Ghost at (%d, %d) swapped to (%d, %d)", ghosts[i].x, ghosts[i].y, ghosts[i].targetX, ghosts[i].targetY);
         }
     }
 }
