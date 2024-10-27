@@ -287,7 +287,7 @@ bool CheckCollisionWithAnyGhost(int playerX, int playerY, Ghost ghosts[], int nu
     Rectangle playerRect = {playerX, playerY, 25, 25};
     for (int i = 0; i < numGhosts; i++) {
         Rectangle ghostRect = {ghosts[i].x, ghosts[i].y, GHOST_WIDTH, GHOST_HEIGHT};
-        if (CheckCollisionRecs(playerRect, ghostRect)) return false;
+        if (CheckCollisionRecs(playerRect, ghostRect)) return true;
     }
     return false;
 }
