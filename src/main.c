@@ -337,10 +337,10 @@ int main(void) {
         int prevY = y;
 
         // Update player position with boundary checks
-        if (IsKeyDown(KEY_W) && y > wallTexture.height) y -= 10;
-        if (IsKeyDown(KEY_A) && x > wallTexture.width) x -= 10;
-        if (IsKeyDown(KEY_S) && y < GetScreenHeight() - wallTexture.height - sourceRec.height) y += 10;
-        if (IsKeyDown(KEY_D) && x < GetScreenWidth() - wallTexture.width - sourceRec.width) x += 10;
+        if ((IsKeyDown(KEY_W) || IsKeyDown(KEY_UP)) && y > wallTexture.height) y -= 10;
+        if ((IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) && x > wallTexture.width) x -= 10;
+        if ((IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN)) && y < GetScreenHeight() - wallTexture.height - sourceRec.height) y += 10;
+        if ((IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) && x < GetScreenWidth() - wallTexture.width - sourceRec.width) x += 10;
 
         if (CheckCollisionWithWalls(x, y)) {
             x = prevX;
@@ -355,6 +355,8 @@ int main(void) {
 
         // Check if player collides with the ghost
         if (CheckCollisionWithAnyGhost(x, y, ghosts, NUM_GHOSTS)) {
+            x = 456;
+            y = 456;
             candies--;
             send_candies(sockfd, candies);
         }
