@@ -16,6 +16,8 @@ char s[INET6_ADDRSTRLEN];
     #define HOST "127.0.0.1"
 #endif
 
+bool has_lost_game = false;
+
 void listen_for_data(int socket) {
   char buffer[MAXDATASIZE];
   ssize_t bytes_received;
@@ -46,6 +48,8 @@ void listen_for_data(int socket) {
           int nid, x, y;
           sscanf(buffer, "pos_%d-(%d,%d)", &nid, &x, &y);
           update_client(nid, x, y);
+        } else if (strncmp(buffer, "lose", 4) == 0) {
+          has_lost_game = true;
         }
         printf("Received: %s\n", buffer);
       }
@@ -59,11 +63,15 @@ void listen_for_data(int socket) {
 
 #define CANDY_X 20
 #define CANDY_Y 20
+#define CANDY_WIDTH 120
+#define CANDY_HEIGHT 50
 
 void draw_candies(Texture2D sprite, int candies) {
-  char buf[20];
+  char buf[3];
+  snprintf(buf, 3, "%.2d", candies);
+  DrawRectangle(CANDY_X, CANDY_Y-5, CANDY_WIDTH, CANDY_HEIGHT, (Color){0, 0, 0, 40});
   DrawTexture(sprite, CANDY_X, CANDY_Y, WHITE);
-  DrawText(buf, CANDY_X + 20, CANDY_Y, 10, WHITE);
+  DrawText(buf, CANDY_X + CANDY_WIDTH/1.5, CANDY_Y + CANDY_HEIGHT/5.5, 25, WHITE);
 }
 
 #define WALL_WIDTH 50
@@ -72,7 +80,7 @@ void draw_candies(Texture2D sprite, int candies) {
 #define GHOST_WIDTH 25
 #define GHOST_HEIGHT 25
 
-#define NUM_GHOSTS 8  // Number of ghosts
+#define NUM_GHOSTS 9  // Number of ghosts
 
 
 typedef struct Ghost {
@@ -86,7 +94,7 @@ typedef struct Ghost {
 } Ghost;
 
 
-Ghost ghosts[NUM_GHOSTS] = {
+Ghost ghosts[] = {
     {150, 150, 150, 150, 450, 150, 10}, //y constant r-l (top left)
     {150, 200, 150, 200, 150, 400, 10}, //x constant u-d
     {700, 150, 700, 150, 500, 150, 10}, //y constant l-r (top right)
@@ -206,6 +214,7 @@ void CheckCollisionWithPumpkins(int x, int y, int *score) {
             if (CheckCollisionRecs(playerRect, pumpkinRect)) {
                 pumpkins1[i].isVisible = false;  // Hide the pumpkin
                 (*score)++;  // Increment score
+                send_candies(sockfd, *score);
             }
         }
     }
@@ -307,6 +316,22 @@ int main(void) {
   SetTargetFPS(30);
 
     while (!WindowShouldClose()) {
+        if (has_lost_game) {
+            close(sockfd);
+            while (GetKeyPressed() == 0) {
+                BeginDrawing();
+                    ClearBackground(BLACK);
+                    const char t[] = "Game over!";
+                    const char st1[] = "You lost all your candies.";
+                    const char sm[] = "Press any key to exit";
+                    int w = GetScreenWidth(), h = GetScreenHeight();
+                    DrawText(t, (w-MeasureText(t, 50))/2, h/2-100, 50, RED);
+                    DrawText(st1, (w-MeasureText(st1, 30))/2, h/2, 30, RED);
+                    DrawText(sm, (w-MeasureText(st1, 20))/2, 800, 20, RED);
+                EndDrawing();
+            }
+            goto end;
+        }
         listen_for_data(sockfd);
         int prevX = x;
         int prevY = y;
@@ -329,14 +354,11 @@ int main(void) {
 
 
         // Check if player collides with the ghost
-//         if (CheckCollisionWithAnyGhost(x, y, ghosts, NUM_GHOSTS)) {
-//     candies = (candies > 0) ? candies - 1 : 0;
-//     if (candies == 0) {
-//         DrawText("Game Over!", GetScreenWidth() / 2 - 50, GetScreenHeight() / 2, 40, RED);
-//         EndDrawing();
-//         break;
-//     }
-// }
+        if (CheckCollisionWithAnyGhost(x, y, ghosts, NUM_GHOSTS)) {
+            candies--;
+            send_candies(sockfd, candies);
+        }
+
         if (x != prevX || y != prevY) send_pos(sockfd, x, y);
 
         BeginDrawing();
@@ -405,6 +427,8 @@ int main(void) {
         EndDrawing();
     }
 
+    close(sockfd);
+end:
     UnloadTexture(sprite);
     UnloadTexture(wallTexture);
     UnloadTexture(pumpkinTexture);  // Unload pumpkin texture
