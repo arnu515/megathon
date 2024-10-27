@@ -72,7 +72,7 @@ void draw_candies(Texture2D sprite, int candies) {
 #define GHOST_WIDTH 25
 #define GHOST_HEIGHT 25
 
-#define NUM_GHOSTS 5  // Number of ghosts
+#define NUM_GHOSTS 8  // Number of ghosts
 
 
 typedef struct Ghost {
@@ -87,12 +87,16 @@ typedef struct Ghost {
 
 
 Ghost ghosts[NUM_GHOSTS] = {
-    {150, 150, 150, 150, 450, 150, 3},
-    {200, 150, 200, 150, 400, 150, 3},
-    {150, 200, 150, 200, 150, 400, 3},
-    {700, 150, 700, 150, 500, 150, 3},
-    {150, 650, 150, 650, 150, 450, 3},
-    //{150, 650, 150, 650, 150, 450, 3},
+    {150, 150, 150, 150, 450, 150, 10}, //y constant r-l (top left)
+    {150, 200, 150, 200, 150, 400, 10}, //x constant u-d
+    {700, 150, 700, 150, 500, 150, 10}, //y constant l-r (top right)
+    {150, 650, 150, 650, 150, 450, 10}, //x constant d-u
+    {700, 750, 700, 750, 500, 750, 10}, //y constant l-r (bottom right)
+    {150, 750, 150, 750, 450, 750, 10}, //bottom left
+    {700, 200, 150, 200, 700, 400, 10}, //not so random top parallelogram
+    {700, 650, 150, 650, 700, 450, 10}, //random bottom parallelogram
+    //{700, 650, 150, 650, 700, 450, 10},
+    {700, 200, 700, 250, 700, 450, 10},
 };
 
 
@@ -103,11 +107,17 @@ typedef struct Wall {
 } Wall;
 
 // Struct to hold pumpkin positions and visibility status
-typedef struct Pumpkin {
+typedef struct Pumpkin1 {
     int x;
     int y;
     bool isVisible;  // New flag for visibility
-} Pumpkin;
+} Pumpkin1;
+
+typedef struct Pumpkin2 {
+    int x;
+    int y;
+    bool isVisible;  // New flag for visibility
+} Pumpkin2;
 
 Wall walls[] = {
 
@@ -151,23 +161,28 @@ Wall walls[] = {
 
 };
 
-Pumpkin pumpkins[] = {
-    {150, 50, true},  // Set initial visibility to true
-    {350, 50, true},
-    {550, 50, true},
-    {750, 50, true},
-    {50, 150, true},
-    {50, 350, true},
-    {50, 550, true},
-    {50, 750, true},
-    {150, 800, true},
-    {350, 800, true},
-    {550, 800, true},
-    {750, 800, true},
-    {775, 150, true},
-    {775, 350, true},
-    {775, 550, true},
-    {775, 750, true},
+Pumpkin1 pumpkins1[] = {
+    
+    {350, 50, true},//2
+    {550, 50, true},//3
+    {50, 150, true},//5
+    {50, 350, true},//6
+    {50, 550, true},//7
+    {50, 750, true},//8
+    {350, 800, true},//10
+    {550, 800, true},//11
+    {800, 740, true},//12
+    {800, 150, true},//13
+    {800, 350, true},//14
+    {800, 550, true},//15
+    
+};
+
+Pumpkin2 pumpkins2[] = {
+    {150, 50, true}, //1
+    {750, 50, true},//4
+    {150, 800, true},//9
+    {715, 800, true},//16
 };
 
 // Function to check collision between player and walls
@@ -185,12 +200,24 @@ bool CheckCollisionWithWalls(int x, int y) {
 // Function to check collision between player and pumpkins
 void CheckCollisionWithPumpkins(int x, int y, int *score) {
     Rectangle playerRect = {x, y, 25, 25};  // Player's bounding box
-    for (int i = 0; i < sizeof(pumpkins) / sizeof(Pumpkin); i++) {
-        if (pumpkins[i].isVisible) {  // Only check visible pumpkins
-            Rectangle pumpkinRect = {pumpkins[i].x, pumpkins[i].y, WALL_WIDTH, WALL_HEIGHT};
+    for (int i = 0; i < sizeof(pumpkins1) / sizeof(Pumpkin1); i++) {
+        if (pumpkins1[i].isVisible) {  // Only check visible pumpkins
+            Rectangle pumpkinRect = {pumpkins1[i].x, pumpkins1[i].y, WALL_WIDTH, WALL_HEIGHT};
             if (CheckCollisionRecs(playerRect, pumpkinRect)) {
-                pumpkins[i].isVisible = false;  // Hide the pumpkin
+                pumpkins1[i].isVisible = false;  // Hide the pumpkin
                 (*score)++;  // Increment score
+            }
+        }
+    }
+}
+void CheckCollisionWithBadPumpkins(int x, int y, int *score) {
+    Rectangle playerRect = {x, y, 25, 25};  // Player's bounding box
+    for (int i = 0; i < sizeof(pumpkins2) / sizeof(Pumpkin2); i++) {
+        if (pumpkins2[i].isVisible) {  // Only check visible pumpkins
+            Rectangle pumpkinRect = {pumpkins2[i].x, pumpkins2[i].y, WALL_WIDTH, WALL_HEIGHT};
+            if (CheckCollisionRecs(playerRect, pumpkinRect)) {
+                pumpkins2[i].isVisible = false;  // Hide the pumpkin
+                (*score)=0;  // Increment score
             }
         }
     }
@@ -297,6 +324,7 @@ int main(void) {
 
         // Check collisions with pumpkins
         CheckCollisionWithPumpkins(x, y, &candies);
+        CheckCollisionWithBadPumpkins(x, y, &candies);
         MoveGhosts(ghosts, NUM_GHOSTS);
 
 
@@ -329,11 +357,36 @@ int main(void) {
                 DrawTexture(wallTexture, walls[i].x, walls[i].y, WHITE);
             }
 
-            for (int i = 0; i < sizeof(pumpkins) / sizeof(Pumpkin); i++) {
-                if (pumpkins[i].isVisible) {  // Only draw visible pumpkins
-                    DrawTexture(pumpkinTexture, pumpkins[i].x, pumpkins[i].y, WHITE);
-                }
-            }
+            for (int i = 0; i < sizeof(pumpkins1) / sizeof(Pumpkin1); i++) {
+    if (pumpkins1[i].isVisible) {  // Only draw visible pumpkins
+        // Set new width and height directly to double the original size
+        int newWidth = pumpkinTexture.width * 2; // Double the width
+        int newHeight = pumpkinTexture.height * 2; // Double the height
+
+        // Draw the pumpkin with the new size
+        DrawTexturePro(pumpkinTexture, 
+            (Rectangle){0, 0, pumpkinTexture.width, pumpkinTexture.height}, 
+            (Rectangle){pumpkins1[i].x, pumpkins1[i].y, newWidth, newHeight}, 
+            (Vector2){0, 0}, 
+            0, WHITE);
+    }
+}
+
+            for (int i = 0; i < sizeof(pumpkins2) / sizeof(Pumpkin2); i++) {
+    if (pumpkins2[i].isVisible) {  // Only draw visible pumpkins
+        // Set new width and height directly to double the original size
+        int newWidth = pumpkinTexture.width * 2; // Double the width
+        int newHeight = pumpkinTexture.height * 2; // Double the height
+
+        // Draw the pumpkin with the new size
+        DrawTexturePro(pumpkinTexture, 
+            (Rectangle){0, 0, pumpkinTexture.width, pumpkinTexture.height}, 
+            (Rectangle){pumpkins2[i].x, pumpkins2[i].y, newWidth, newHeight}, 
+            (Vector2){0, 0}, 
+            0, WHITE);
+    }
+}
+
             for (int i = 0; i < NUM_GHOSTS; i++) {
                 DrawTexture(ghostTexture, ghosts[i].x, ghosts[i].y, WHITE);
             }
