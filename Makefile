@@ -10,7 +10,7 @@ run: game
 
 .PHONY: clean
 clean:
-	@rm -rf ./game ./server
+	@rm -rf ./game ./srv
 
 srv: $(wildcard ./server/*.c ./server/*.h)
 	@cc -I./server -o ./srv ./server/main.c
