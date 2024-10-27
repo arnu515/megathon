@@ -46,6 +46,34 @@ void broadcast_pos(int sender_socket, char data[]) {
     pthread_mutex_unlock(&client_mutex);
 }
 
+void broadcast_pumpkin(int sender_socket, char data[]) {
+    pthread_mutex_lock(&client_mutex);
+    for (int i = 0; i < client_count; i++) 
+        if (client_sockets[i].socket != sender_socket) send(client_sockets[i].socket, data, strlen(data), 0);
+    pthread_mutex_unlock(&client_mutex);
+}
+
+int cmp_place(const void *a, const void *b) {
+    return ((const int *)b)[0] - ((const int *)a)[0];
+}
+
+void send_place(int sender_socket) {
+    pthread_mutex_lock(&client_mutex);
+    int candy_socks[client_count][2];
+    for (int i = 0; i < client_count; i++) {
+        candy_socks[i][0] = client_sockets[i].candies;
+        candy_socks[i][1] = client_sockets[i].socket;
+    }
+    qsort(candy_socks, client_count, sizeof(int[2]), cmp_place);
+    for (int i = 0; i < client_count; i++) {
+      char str[20];
+
+      int n = snprintf(str, sizeof(str), "place-(%d)\n", i+1);
+      send(candy_socks[i][1], str, n, 0);
+    }
+    pthread_mutex_unlock(&client_mutex);
+}
+
 void set_candies(int sender_socket, char data[]) {
     int candies;
     sscanf(data, "candies-(%d)", &candies);
@@ -120,8 +148,18 @@ void *handle_client(void *arg) {
             continue;
         }
 
+        if (strncmp(buffer, "pumpkin-", 8) == 0) {
+            broadcast_pumpkin(new_socket, buffer);
+            continue;
+        }
+
         if (strncmp(buffer, "get", 3) == 0) {
             send_all_coords(new_socket);
+            continue;
+        }
+
+        if (strncmp(buffer, "end", 3) == 0) {
+            send_place(new_socket);
             continue;
         }
 
