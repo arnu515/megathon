@@ -2,6 +2,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "draw_clients.c"
 
@@ -49,6 +50,19 @@ typedef struct Ghost {
     int speed;
 } Ghost;
 
+
+Ghost default_ghosts[] = {
+    {150, 150, 150, 150, 450, 150, 10}, //y constant r-l (top left)
+    {150, 200, 150, 200, 150, 400, 10}, //x constant u-d
+    {700, 150, 700, 150, 500, 150, 10}, //y constant l-r (top right)
+    {150, 650, 150, 650, 150, 450, 10}, //x constant d-u
+    {700, 750, 700, 750, 500, 750, 10}, //y constant l-r (bottom right)
+    {150, 750, 150, 750, 450, 750, 10}, //bottom left
+    {700, 200, 150, 200, 700, 400, 10}, //not so random top parallelogram
+    {700, 650, 150, 650, 700, 450, 10}, //random bottom parallelogram
+    //{700, 650, 150, 650, 700, 450, 10},
+    {700, 200, 700, 250, 700, 450, 10},
+};
 
 Ghost ghosts[] = {
     {150, 150, 150, 150, 450, 150, 10}, //y constant r-l (top left)
@@ -208,6 +222,7 @@ void listen_for_data(int socket) {
         if (strncmp(buffer, "join_", 5) == 0) {
           int nid, x, y;
           sscanf(buffer, "join_%d-(%d,%d)", &nid, &x, &y);
+          memcpy(ghosts, default_ghosts, sizeof(default_ghosts));
           add_client(nid, x, y);
         } else if (strncmp(buffer, "leave_", 5) == 0) {
           int nid, x, y;
