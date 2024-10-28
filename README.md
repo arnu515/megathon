@@ -6,6 +6,8 @@ Megathon!
 
 1. Clone the repo
 
-2. `make run`
+2. Build the server: `make srv && ./srv`
+
+3. `make run` in a different terminal
 
 3. Play!
